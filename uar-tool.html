@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UAR &amp; SoD Review Tool — Oracle ERP</title>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#f3f4f7; --card:#fff; --ink:#18212f; --mut:#69758a; --line:#e4e7ee; --line-soft:#edf0f5;
+    --brand:#264a78; --brand-deep:#132743; --brand-ghost:#eef3fa;
+    --crit:#8c1d33; --high:#b6474b; --med:#a3762a; --low:#828d9c; --info:#3d688f; --ok:#2f7d57;
+    --shadow-sm:0 1px 2px rgba(19,39,67,.05),0 2px 8px rgba(19,39,67,.05);
+    --shadow-md:0 2px 4px rgba(19,39,67,.06),0 10px 28px rgba(19,39,67,.09);
+    --r-lg:14px; --r-md:10px; --r-sm:7px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font:14px/1.5 "Outfit","Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink);
+    -webkit-font-smoothing:antialiased}
+  ::selection{background:var(--brand);color:#fff}
+  header{position:relative;overflow:hidden;color:#fff;padding:30px 30px 26px;
+    background:linear-gradient(130deg,#0f2036 0%,#1a3357 58%,#264a78 100%)}
+  header::before{content:"";position:absolute;inset:0;pointer-events:none;
+    background:radial-gradient(560px 220px at 82% -30%,rgba(122,168,224,.32),transparent 68%)}
+  header .wrap{max-width:1400px;margin:0 auto;position:relative}
+  header h1{margin:0;font-size:25px;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+  header .sub{font-size:13.5px;font-weight:400;opacity:.72;margin-top:5px;letter-spacing:.01em}
+  header .pill{display:inline-flex;align-items:center;gap:6px;margin-top:14px;padding:4px 12px;border-radius:999px;
+    font-size:11.5px;font-weight:500;letter-spacing:.02em;color:#cfe0f4;
+    background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14)}
+  header .pill::before{content:"";width:6px;height:6px;border-radius:50%;background:#6fcf9a}
+  main{max-width:1400px;margin:0 auto;padding:24px 30px 48px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 17px;box-shadow:var(--shadow-sm)}
+  .slot{position:relative;border:1.5px dashed #ccd4e0;cursor:pointer;
+    transition:border-color .2s,transform .2s,box-shadow .2s,background .2s}
+  .slot:hover,.slot.drag{border-color:var(--brand);transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .slot:active{transform:translateY(0) scale(.995)}
+  .slot h3{margin:0 0 5px;font-size:13.5px;font-weight:600;letter-spacing:-.01em}
+  .slot .st{font-size:12px;color:var(--mut);white-space:pre-line;line-height:1.55}
+  .slot.loaded{border-style:solid;border-color:transparent;background:linear-gradient(#fdfefd,#f5faf7);
+    box-shadow:inset 3px 0 0 var(--ok),var(--shadow-sm)}
+  .btnrow{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:20px}
+  button{background:var(--brand);color:#fff;border:0;border-radius:var(--r-sm);padding:9px 18px;
+    font:600 13px "Outfit",sans-serif;letter-spacing:.01em;cursor:pointer;
+    transition:transform .18s,box-shadow .18s,background .18s,color .18s,border-color .18s}
+  button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 14px rgba(19,39,67,.22)}
+  button:active:not(:disabled){transform:translateY(0) scale(.97);box-shadow:none}
+  button:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+  button:disabled{background:#c3cbd8;cursor:not-allowed}
+  button.sec{background:#fff;color:var(--brand);border:1px solid #c9d4e4}
+  button.sec:hover:not(:disabled){border-color:var(--brand);box-shadow:0 4px 14px rgba(19,39,67,.10)}
+  button.mini{padding:3px 10px;font-size:12px}
+  button.danger{background:#fff;color:var(--high);border:1px solid #e0bcbd}
+  button.danger:hover:not(:disabled){border-color:var(--high);box-shadow:0 4px 14px rgba(140,29,51,.12)}
+  .dash{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin-bottom:20px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:13px 15px 11px;
+    box-shadow:var(--shadow-sm);position:relative;overflow:hidden;transition:transform .2s,box-shadow .2s}
+  .stat:hover{transform:translateY(-2px);box-shadow:var(--shadow-md)}
+  .stat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--brand)}
+  .stat .n{font-size:27px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.1}
+  .stat .l{font-size:10.5px;font-weight:500;color:var(--mut);text-transform:uppercase;letter-spacing:.07em;margin-top:3px}
+  .stat.crit::before{background:var(--crit)} .stat.high::before{background:var(--high)}
+  .stat.med::before{background:var(--med)} .stat.info::before{background:var(--info)} .stat.ok::before{background:var(--ok)}
+  .chartgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:20px}
+  .chart{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
+  .chart h3{margin:0 0 12px;font-size:13px;font-weight:600;letter-spacing:-.01em}
+  .chart h3 small{font-weight:400;color:var(--mut);letter-spacing:0}
+  .brow{display:grid;grid-template-columns:118px 1fr 34px;gap:10px;align-items:center;padding:4px 6px;margin:0 -6px;
+    border-radius:6px;transition:background .12s}
+  .chart.wide .brow{grid-template-columns:225px 1fr 34px}
+  .chart.wide .blab{font-size:11px;font-family:Consolas,ui-monospace,monospace}
+  .brow:hover{background:#f4f6fa}
+  .blab{font-size:12px;color:var(--ink);text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .btrack{background:var(--line-soft);border-radius:4px;height:16px;overflow:hidden}
+  .bfill{height:100%;border-radius:0 4px 4px 0;background:var(--brand);min-width:2px;transition:width .5s cubic-bezier(.2,.7,.3,1)}
+  .bval{font-size:12px;font-weight:600;color:var(--mut);font-variant-numeric:tabular-nums}
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;padding:0 4px}
+  .tabs button{background:transparent;color:var(--mut);border:0;border-radius:var(--r-sm) var(--r-sm) 0 0;
+    padding:10px 16px 12px;font-weight:600;font-size:13.5px;position:relative}
+  .tabs button:hover:not(.on){color:var(--ink);transform:none;box-shadow:none;background:rgba(255,255,255,.6)}
+  .tabs button.on{background:var(--card);color:var(--brand);box-shadow:var(--shadow-sm)}
+  .tabs button.on::after{content:"";position:absolute;left:14px;right:14px;top:0;height:3px;
+    border-radius:0 0 3px 3px;background:var(--brand)}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px;min-height:220px;
+    box-shadow:var(--shadow-sm);position:relative;z-index:1}
+  select.disp{padding:5px 8px;border:1px solid var(--line);border-radius:6px;font:12px "Outfit",sans-serif;color:var(--ink);
+    background:#fbfcfe;cursor:pointer;transition:border-color .15s,box-shadow .15s,background .15s}
+  select.disp:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(38,74,120,.12)}
+  select.disp.tp{background:#f9e8e8;border-color:#d8aaac;color:#7c2124;font-weight:600}
+  select.disp.fp{background:#e2f1e9;border-color:#a9d2bc;color:#1f5b3d;font-weight:600}
+  .chip{display:inline-block;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:700;letter-spacing:.05em;color:#fff}
+  .chip.CRITICAL{background:#6e1226} .chip.HIGH{background:#a02c30}
+  .chip.MEDIUM{background:#8a6118} .chip.LOW{background:#5c6774}
+  .chip.INFO{background:#2f5678} .chip.OK{background:#1f6343}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{background:#f4f6fa;text-align:left;padding:9px 11px;position:sticky;top:0;cursor:pointer;user-select:none;
+    white-space:nowrap;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);
+    border-bottom:1px solid var(--line);transition:color .15s}
+  th:hover{color:var(--brand)}
+  td{padding:8px 11px;border-top:1px solid var(--line-soft);vertical-align:top;font-variant-numeric:tabular-nums}
+  tbody tr{transition:background .12s}
+  tbody tr:hover td{background:#f6f8fc}
+  .tblwrap{overflow:auto;max-height:62vh;border:1px solid var(--line);border-radius:var(--r-md)}
+  .tbar{display:flex;gap:12px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .tbar input[type=text]{padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);min-width:260px;
+    font:13px "Outfit",sans-serif;color:var(--ink);background:#fbfcfe;transition:border-color .15s,box-shadow .15s}
+  .tbar input[type=text]:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(38,74,120,.12)}
+  .tbar .cnt{color:var(--mut);font-size:12px;font-variant-numeric:tabular-nums}
+  .pager{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+  .rules table input[type=text]{width:100%;border:1px solid var(--line);border-radius:5px;padding:5px 8px;font-size:12px;
+    font-family:Consolas,ui-monospace,monospace;background:#fbfcfe;transition:border-color .15s,box-shadow .15s}
+  .rules table input[type=text]:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(38,74,120,.12)}
+  .rules h3{margin:20px 0 8px;font-size:14.5px;letter-spacing:-.01em}
+  .note{font-size:12.5px;color:var(--mut);line-height:1.6}
+  .err{color:var(--high);font-size:12px;white-space:pre-line}
+  #msg{font-size:13px;color:var(--mut)}
+  input[type=file]{display:none}
+  code{background:#eef1f6;padding:1px 5px;border-radius:4px;font-family:Consolas,ui-monospace,monospace;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>UAR &amp; SoD Review — Oracle ERP</h1>
+    <div class="sub">Upload access extracts, run the review, export audit-ready Excel and Word findings.</div>
+    <span class="pill">All processing stays in this browser — no data leaves your machine</span>
+  </div>
+</header>
+<main>
+  <div class="cards">
+    <div class="card slot" id="slot-uar">
+      <h3>1 · UAR file (Overall / Joiner / Exit)</h3>
+      <div class="st">Click or drop .xlsx here</div>
+      <input type="file" accept=".xlsx,.xls">
+    </div>
+    <div class="card slot" id="slot-resp">
+      <h3>2 · Oracle responsibility extract</h3>
+      <div class="st">Click or drop .xlsx here</div>
+      <input type="file" accept=".xlsx,.xls">
+    </div>
+    <div class="card slot" id="slot-map">
+      <h3>3 · Name / email mapping (Name_Oracle)</h3>
+      <div class="st">Click or drop .xlsx here</div>
+      <input type="file" accept=".xlsx,.xls">
+    </div>
+    <div class="card slot" id="slot-sod">
+      <h3>4 · Custom SoD matrix (optional)</h3>
+      <div class="st">Columns: Category A | Category B | Risk | Description. Optional 2nd sheet: Category | App filter | Name pattern. If empty, built-in Oracle EBS matrix is used.</div>
+      <input type="file" accept=".xlsx,.xls">
+    </div>
+  </div>
+
+  <div class="btnrow">
+    <button id="btn-run" disabled>Run review</button>
+    <button id="btn-xlsx" class="sec" disabled>Export Excel</button>
+    <button id="btn-word" class="sec" disabled>Export Word report</button>
+    <span id="msg"></span>
+  </div>
+
+  <div class="dash" id="dash" hidden></div>
+  <div class="chartgrid" id="charts" hidden></div>
+
+  <div class="tabs" id="tabs">
+    <button data-tab="sod" class="on">SoD conflicts</button>
+    <button data-tab="leavers">Leavers</button>
+    <button data-tab="joiners">Joiners</button>
+    <button data-tab="uar">Full UAR</button>
+    <button data-tab="unmatched">Unmatched</button>
+    <button data-tab="rules">Rules</button>
+  </div>
+  <div class="panel" id="panel"><span class="note">Load files and click <b>Run review</b>.</span></div>
+</main>
+
+<script>
+"use strict";
+/* =====================================================================
+   ENGINE — pure functions, no DOM. Portable to Python if data outgrows JS.
+   ===================================================================== */
+
+const DEFAULT_RULES = {
+  readonly: "inquiry|enquiry|report|view only|read only",
+  generic: "^%|%$|^EX[_.]|GENERIC|SHARED|BATCH|CONVERSION|INTERFACE|^TEST",
+  superuser: "super user",
+  classifications: [
+    { cat:"AP_INVOICE_ENTRY", apps:"SQLAP",     name:"(\\bap\\b|payables?\\b).*(manager|super user|entry|invoice|consultant|\\buser\\b)" },
+    { cat:"AP_PAYMENTS",      apps:"SQLAP,CE",  name:"payment" },
+    { cat:"GL_JOURNAL",       apps:"SQLGL",     name:"(\\bgl\\b|general ledger).*(manager|super user|entry|consultant|\\buser\\b)|journal" },
+    { cat:"GL_PERIOD_CONTROL",apps:"",          name:"period control|open/?close period" },
+    { cat:"PO_CREATE",        apps:"PO",        name:"(\\bpo\\b|purchas\\w*).*(manager|super user|buyer|\\buser\\b)" },
+    { cat:"PO_RECEIVING",     apps:"",          name:"receiving" },
+    { cat:"INV_MAINTAIN",     apps:"INV",       name:"(\\binv\\b|inventory).*(manager|super user|\\buser\\b)" },
+    { cat:"AR_MAINTAIN",      apps:"AR",        name:"(\\bar\\b|receivables?\\b).*(manager|super user|\\buser\\b)" },
+    { cat:"AR_CASH",          apps:"AR,CE",     name:"cash|remittance|receipt" },
+    { cat:"OM_ORDER_ENTRY",   apps:"ONT",       name:"(\\bom\\b|order).*(manager|super user|entry|\\buser\\b)|sales admin" },
+    { cat:"CUSTOMER_MAINT",   apps:"",          name:"customer.*(maint\\w*|master|manager|super user|\\buser\\b)" },
+    { cat:"SUPPLIER_MAINT",   apps:"",          name:"supplier|vendor" },
+    { cat:"CST_MAINTAIN",     apps:"CST,BOM",   name:"(\\bcst\\b|cost\\w*).*(manager|super user|\\buser\\b)" },
+    { cat:"FA_MAINTAIN",      apps:"OFA",       name:"(\\bfa\\b|assets?\\b).*(manager|super user|\\buser\\b)" },
+    { cat:"HR_MAINTAIN",      apps:"PER",       name:"\\bhr\\b|human resource" },
+    { cat:"PAYROLL",          apps:"PAY",       name:"payroll" },
+    { cat:"SYSADMIN",         apps:"",          name:"system administrat\\w*|sysadmin|application developer|security administrat\\w*|user management|workflow administrat\\w*" },
+    { cat:"EXPENSE_AUDIT",    apps:"",          name:"\\boie\\b|expense.*audit|auditor" }
+  ],
+  conflicts: [
+    { a:"AP_INVOICE_ENTRY", b:"GL_JOURNAL",       risk:"HIGH",   desc:"Enter supplier invoices and post GL journals — can conceal fictitious payables" },
+    { a:"AP_INVOICE_ENTRY", b:"AP_PAYMENTS",      risk:"HIGH",   desc:"Enter invoices and run payments — end-to-end fraudulent disbursement" },
+    { a:"AP_INVOICE_ENTRY", b:"SUPPLIER_MAINT",   risk:"HIGH",   desc:"Create/modify suppliers and enter their invoices — fictitious vendor risk" },
+    { a:"AP_PAYMENTS",      b:"SUPPLIER_MAINT",   risk:"HIGH",   desc:"Maintain supplier bank details and pay them — payment diversion" },
+    { a:"PO_CREATE",        b:"AP_INVOICE_ENTRY", risk:"HIGH",   desc:"Raise purchase orders and enter matching invoices — bypasses purchasing control" },
+    { a:"PO_CREATE",        b:"PO_RECEIVING",     risk:"HIGH",   desc:"Order goods and receipt them — phantom receipt risk" },
+    { a:"PO_RECEIVING",     b:"AP_INVOICE_ENTRY", risk:"MEDIUM", desc:"Receipt goods and enter invoices — can force 3-way match" },
+    { a:"OM_ORDER_ENTRY",   b:"AR_MAINTAIN",      risk:"HIGH",   desc:"Enter sales orders and maintain receivables/credit memos on the same customers" },
+    { a:"AR_MAINTAIN",      b:"AR_CASH",          risk:"HIGH",   desc:"Adjust receivables and apply cash — lapping / concealment risk" },
+    { a:"AR_MAINTAIN",      b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Adjust receivables and post GL journals" },
+    { a:"AR_MAINTAIN",      b:"CUSTOMER_MAINT",   risk:"MEDIUM", desc:"Maintain customers (credit limits) and their receivables" },
+    { a:"OM_ORDER_ENTRY",   b:"CUSTOMER_MAINT",   risk:"MEDIUM", desc:"Enter orders and change customer credit limits" },
+    { a:"GL_JOURNAL",       b:"GL_PERIOD_CONTROL",risk:"HIGH",   desc:"Post journals and open/close periods — post-close manipulation" },
+    { a:"INV_MAINTAIN",     b:"PO_RECEIVING",     risk:"MEDIUM", desc:"Adjust inventory and receipt goods — inventory misappropriation cover-up" },
+    { a:"INV_MAINTAIN",     b:"CST_MAINTAIN",     risk:"MEDIUM", desc:"Adjust inventory quantities and costs" },
+    { a:"FA_MAINTAIN",      b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Maintain assets and post GL journals" },
+    { a:"HR_MAINTAIN",      b:"PAYROLL",          risk:"HIGH",   desc:"Maintain employees and process payroll — ghost employee risk" },
+    { a:"AP_INVOICE_ENTRY", b:"EXPENSE_AUDIT",    risk:"MEDIUM", desc:"Enter payables and audit expense reports — self-approval exposure" }
+  ]
+};
+
+const SEV_ORDER = { CRITICAL:0, HIGH:1, MEDIUM:2, LOW:3, INFO:4, OK:5 };
+const normHdr = s => String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]/g,"");
+const normName = s => String(s==null?"":s).toUpperCase().replace(/[^A-Z0-9 ]/g," ").replace(/\s+/g," ").trim();
+const nameTokens = s => normName(s).split(" ").filter(t=>t.length>1);
+const fmtDate = d => d instanceof Date && !isNaN(d) ? d.toISOString().slice(0,10) : (d==null?"":String(d));
+const asDate = v => v instanceof Date ? v : (v && !isNaN(new Date(v)) ? new Date(v) : null);
+
+// dataset specs: required normalized-header keys + canonical column map
+const SPECS = {
+  exit:    { req:["employeename","exitdate"], cols:{ id:"employeeid", name:"employeename", desig:"designation", resigned:"resigned", exit:"exitdate", status:"status" } },
+  joiner:  { req:["employeename","joindate"], cols:{ id:"employeeid", name:"employeename", desig:"designation", join:"joindate", status:"status" } },
+  resp:    { req:["username","responsibilityname"], cols:{ user:"username", resp:"responsibilityname", start:"startdate", end:"enddate", key:"responsibilitykey", app:"applicationshortname" } },
+  map:     { req:["emailaddress","fullname"], cols:{ pid:"personid", last:"lastname", email:"emailaddress", full:"fullname" } },
+  sodconf: { req:["categorya","categoryb"], cols:{ a:"categorya", b:"categoryb", risk:"risk", desc:"desc" } },
+  sodclass:{ req:["category","pattern"], cols:{ cat:"category", apps:"app", name:"pattern" } },
+  overall: { req:["employeename"], cols:{ id:"employeeid", name:"employeename", doj:"doj", grade:"grade", desig:"designation", func:"function", loc:"location", status:"status" } }
+};
+const DETECT_ORDER = ["exit","joiner","resp","map","sodconf","sodclass","overall"];
+
+function detectDatasets(wb, allowed){
+  const found = {};
+  for (const sn of wb.SheetNames){
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header:1, defval:null });
+    let hi = rows.findIndex(r => r && r.filter(c=>c!=null && c!=="").length >= 2);
+    if (hi < 0) continue;
+    const hdrs = rows[hi].map(normHdr);
+    const findCol = key => hdrs.findIndex(h => h.includes(key));
+    for (const kind of DETECT_ORDER){
+      if (allowed && !allowed.includes(kind)) continue;
+      const spec = SPECS[kind];
+      if (!spec.req.every(k => findCol(k) >= 0)) continue;
+      if (kind==="overall" && (findCol("exitdate")>=0 || findCol("joindate")>=0 || findCol("responsibilityname")>=0)) continue;
+      const colIdx = {};
+      for (const [c,key] of Object.entries(spec.cols)) colIdx[c] = findCol(key);
+      const data = [];
+      for (let i=hi+1;i<rows.length;i++){
+        const r = rows[i]; if (!r) continue;
+        const o = {};
+        let any=false;
+        for (const [c,idx] of Object.entries(colIdx)){ o[c] = idx>=0 ? r[idx] : null; if (o[c]!=null && o[c]!=="") any=true; }
+        if (any) data.push(o);
+      }
+      if (data.length){
+        if (!found[kind]) found[kind] = { sheets:[], rows:[] };
+        found[kind].sheets.push(sn);
+        found[kind].rows.push(...data);
+      }
+      break;
+    }
+  }
+  return found;
+}
+
+function compileRules(rules){
+  const rx = (s,fb) => { try { return new RegExp(s,"i"); } catch(e){ return fb; } };
+  return {
+    readonly: rx(rules.readonly, /$^/),
+    generic: rx(rules.generic, /$^/),
+    superuser: rx(rules.superuser, /$^/),
+    classifications: rules.classifications.map(c => ({ cat:c.cat, rx:rx(c.name,/$^/), apps:c.apps ? c.apps.split(",").map(a=>a.trim().toUpperCase()).filter(Boolean) : [] })),
+    conflicts: rules.conflicts
+  };
+}
+
+function classifyResp(name, app, R){
+  if (R.readonly.test(name)) return [];
+  const A = String(app||"").toUpperCase();
+  const cats = [];
+  for (const c of R.classifications)
+    if ((!c.apps.length || c.apps.includes(A)) && c.rx.test(name)) cats.push(c.cat);
+  return cats;
+}
+
+function runReview(data, rules, today){
+  const R = compileRules(rules);
+  const out = { leavers:[], joiners:[], sod:[], uar:[], unmatched:[], summary:{} };
+
+  // ---- group responsibilities per Oracle user
+  const users = new Map();
+  for (const r of (data.resp?.rows||[])){
+    if (r.user==null || r.resp==null) continue;
+    const u = String(r.user).trim();
+    if (!users.has(u)) users.set(u, []);
+    const end = asDate(r.end);
+    users.get(u).push({ resp:String(r.resp), start:asDate(r.start), end, app:r.app?String(r.app):"",
+      active: !end || end > today, cats: classifyResp(String(r.resp), r.app, R) });
+  }
+
+  // ---- email local-part -> mapping row; name-token index over mapping
+  const emailIdx = new Map();
+  const mapRows = [];
+  for (const m of (data.map?.rows||[])){
+    const full = m.full || m.last || "";
+    const row = { pid:m.pid, full:String(full), email:m.email?String(m.email).trim():"", tokens:nameTokens(full||"") };
+    mapRows.push(row);
+    if (row.email && row.email.includes("@")){
+      const local = row.email.split("@")[0].toLowerCase();
+      emailIdx.set(local, row);
+      emailIdx.set(local.replace(/[^a-z0-9]/g,""), row);
+    }
+  }
+  const userKey = u => String(u).toLowerCase();
+  const mapForUser = u => emailIdx.get(userKey(u)) || emailIdx.get(userKey(u).replace(/[^a-z0-9]/g,"")) || null;
+  // ponytail: O(n) token-subset scan per lookup — fine while mapping file is thousands of rows; index it if it ever isn't
+  const mapForName = name => {
+    const t = nameTokens(name); if (t.length<1) return null;
+    const ts = new Set(t);
+    let best=null, bestScore=0;
+    for (const m of mapRows){
+      if (!m.tokens.length) continue;
+      const ms = new Set(m.tokens);
+      const inter = m.tokens.filter(x=>ts.has(x)).length;
+      const exact = inter===ts.size && inter===ms.size;
+      const subset = inter>=2 && (inter===ts.size || inter===ms.size);
+      const score = exact?3:(subset?2:0);
+      if (score>bestScore){ best=m; bestScore=score; }
+    }
+    return best;
+  };
+  const oracleUserForMap = m => {
+    if (!m || !m.email || !m.email.includes("@")) return null;
+    const local = m.email.split("@")[0].toLowerCase();
+    for (const u of users.keys())
+      if (userKey(u)===local || userKey(u).replace(/[^a-z0-9]/g,"")===local.replace(/[^a-z0-9]/g,"")) return u;
+    return null;
+  };
+
+  // ---- employee master (overall + joiner + exit) for UAR enrichment
+  const empIdx = [];
+  for (const [src,ds] of [["Overall","overall"],["Joiner","joiner"],["Exit","exit"]])
+    for (const e of (data[ds]?.rows||[]))
+      if (e.name) empIdx.push({ src, id:e.id, name:String(e.name), status:e.status?String(e.status):src, tokens:nameTokens(e.name) });
+  const empForName = name => {
+    const ts = new Set(nameTokens(name)); if (!ts.size) return null;
+    for (const e of empIdx){
+      const inter = e.tokens.filter(x=>ts.has(x)).length;
+      if (inter>=2 && (inter===ts.size || inter===e.tokens.length)) return e;
+    }
+    return null;
+  };
+
+  // ---- 1. Leavers
+  for (const e of (data.exit?.rows||[])){
+    if (!e.name) continue;
+    const exitD = asDate(e.exit);
+    const m = mapForName(e.name);
+    if (!m){ out.unmatched.push({ type:"Exit employee", item:String(e.name), detail:"No entry in name/email mapping file" }); continue; }
+    const u = oracleUserForMap(m);
+    if (!u){
+      out.leavers.push({ disposition:"", severity:"INFO", employee:String(e.name), empId:e.id||"", exitDate:fmtDate(exitD), oracleUser:"—",
+        email:m.email||"—", finding:"No Oracle user found for mapped email — likely never had ERP access", resps:"" });
+      continue;
+    }
+    const resps = users.get(u);
+    const stillActive = resps.filter(r=>!r.end);
+    const endedLate = resps.filter(r=>r.end && exitD && r.end > exitD);
+    if (stillActive.length)
+      out.leavers.push({ disposition:"", severity:"HIGH", employee:String(e.name), empId:e.id||"", exitDate:fmtDate(exitD), oracleUser:u, email:m.email,
+        finding:`${stillActive.length} responsibility(ies) still ACTIVE after exit`, resps: stillActive.map(r=>r.resp).join("; ") });
+    else if (endedLate.length)
+      out.leavers.push({ disposition:"", severity:"MEDIUM", employee:String(e.name), empId:e.id||"", exitDate:fmtDate(exitD), oracleUser:u, email:m.email,
+        finding:"Access end-dated AFTER exit date", resps: endedLate.map(r=>`${r.resp} (ended ${fmtDate(r.end)})`).join("; ") });
+    else
+      out.leavers.push({ disposition:"", severity:"OK", employee:String(e.name), empId:e.id||"", exitDate:fmtDate(exitD), oracleUser:u, email:m.email,
+        finding:"All access end-dated on/before exit", resps: resps.map(r=>`${r.resp} (ended ${fmtDate(r.end)})`).join("; ") });
+  }
+
+  // ---- 2. Joiners
+  for (const j of (data.joiner?.rows||[])){
+    if (!j.name) continue;
+    const m = mapForName(j.name);
+    const u = m ? oracleUserForMap(m) : null;
+    if (!m)
+      out.joiners.push({ disposition:"", severity:"INFO", employee:String(j.name), empId:j.id||"", joinDate:fmtDate(asDate(j.join)), status:j.status||"", oracleUser:"—", finding:"Not in mapping file — no ERP access identified", resps:"" });
+    else if (!u)
+      out.joiners.push({ disposition:"", severity:"INFO", employee:String(j.name), empId:j.id||"", joinDate:fmtDate(asDate(j.join)), status:j.status||"", oracleUser:"—", finding:"Mapped but no Oracle user for email", resps:"" });
+    else {
+      const act = users.get(u).filter(r=>r.active);
+      out.joiners.push({ disposition:"", severity: act.length?"LOW":"INFO", employee:String(j.name), empId:j.id||"", joinDate:fmtDate(asDate(j.join)), status:j.status||"", oracleUser:u,
+        finding: act.length?`${act.length} active responsibility(ies) — review appropriateness for role '${j.desig||""}'`:"Oracle user exists, no active access", resps: act.map(r=>r.resp).join("; ") });
+    }
+  }
+
+  // ---- 3. SoD (active responsibilities only)
+  for (const [u,resps] of users){
+    const act = resps.filter(r=>r.active);
+    const m = mapForUser(u);
+    const emp = m ? empForName(m.full) : null;
+    const who = m ? m.full.replace(/,\s*$/,"") : "";
+    const catMap = new Map(); // cat -> resp names
+    for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r.resp); }
+    if (R.generic.test(u) && act.length)
+      out.sod.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
+        detail:`Account name matches generic pattern; holds ${act.length} active responsibility(ies) — no individual accountability`,
+        resps: act.map(r=>r.resp).join("; ") });
+    if (catMap.has("SYSADMIN"))
+      out.sod.push({ disposition:"", severity:"CRITICAL", user:u, employee:who, rule:"SYSADMIN / SECURITY ADMIN",
+        detail:"Holds system administration capability — can alter any user's access", resps: catMap.get("SYSADMIN").join("; ") });
+    for (const r of act)
+      if (R.superuser.test(r.resp))
+        out.sod.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER", detail:"Super-user responsibility grants broad transactional access — confirm business need", resps:r.resp });
+    for (const c of R.conflicts)
+      if (catMap.has(c.a) && catMap.has(c.b)){
+        const ra = catMap.get(c.a), rb = catMap.get(c.b);
+        if (c.a!==c.b || ra.length>1)
+          out.sod.push({ disposition:"", severity:c.risk, user:u, employee:who, rule:`${c.a} × ${c.b}`, detail:c.desc,
+            resps:`[${c.a}] ${[...new Set(ra)].join("; ")}  |  [${c.b}] ${[...new Set(rb)].join("; ")}` });
+      }
+  }
+  out.sod.sort((x,y)=>(SEV_ORDER[x.severity]??9)-(SEV_ORDER[y.severity]??9) || x.user.localeCompare(y.user));
+
+  // ---- 4. Full UAR dump + unmatched Oracle users
+  const conflictCount = new Map();
+  for (const f of out.sod){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
+  for (const [u,resps] of users){
+    const m = mapForUser(u);
+    const emp = m ? empForName(m.full) : null;
+    if (!m) out.unmatched.push({ type:"Oracle user", item:u, detail:"Username does not match any email local-part in mapping file" });
+    for (const r of resps)
+      out.uar.push({ user:u, employee: m?m.full.replace(/,\s*$/,""):"—", empId: emp?emp.id||"":"", empStatus: emp?emp.status:(m?"Not in UAR sheets":"UNMATCHED"),
+        resp:r.resp, app:r.app, start:fmtDate(r.start), end:fmtDate(r.end), active: r.active?"Yes":"No",
+        categories:r.cats.join(", "), conflicts: conflictCount.get(u)||0 });
+  }
+
+  out.summary = {
+    oracleUsers: users.size,
+    respRows: out.uar.length,
+    sodCritical: out.sod.filter(f=>f.severity==="CRITICAL").length,
+    sodHigh: out.sod.filter(f=>f.severity==="HIGH").length,
+    sodMedium: out.sod.filter(f=>f.severity==="MEDIUM").length,
+    leaverHigh: out.leavers.filter(f=>f.severity==="HIGH").length,
+    leaverOther: out.leavers.filter(f=>f.severity!=="HIGH"&&f.severity!=="OK").length,
+    joiners: out.joiners.length,
+    unmatched: out.unmatched.length
+  };
+  return out;
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+const $ = s => document.querySelector(s);
+const state = { data:{}, results:null, tab:"sod" };
+const RULES_KEY = "uar.rules.v1";
+let rules = loadRules();
+function loadRules(){
+  try { const s = localStorage.getItem(RULES_KEY); if (s) return JSON.parse(s); } catch(e){}
+  return JSON.parse(JSON.stringify(DEFAULT_RULES));
+}
+function saveRules(){ localStorage.setItem(RULES_KEY, JSON.stringify(rules)); }
+
+// ---- file slots
+const SLOT_HINT = { "slot-uar":["overall","joiner","exit"], "slot-resp":["resp"], "slot-map":["map"], "slot-sod":["sodconf","sodclass"] };
+for (const id of Object.keys(SLOT_HINT)){
+  const el = document.getElementById(id), inp = el.querySelector("input");
+  el.addEventListener("click", ()=>inp.click());
+  el.addEventListener("dragover", e=>{e.preventDefault(); el.classList.add("drag");});
+  el.addEventListener("dragleave", ()=>el.classList.remove("drag"));
+  el.addEventListener("drop", e=>{e.preventDefault(); el.classList.remove("drag"); if(e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0], el);});
+  inp.addEventListener("change", ()=>{ if(inp.files[0]) loadFile(inp.files[0], el); });
+}
+async function loadFile(file, el){
+  const st = el.querySelector(".st");
+  st.textContent = "Reading " + file.name + "…";
+  try {
+    const wb = XLSX.read(await file.arrayBuffer(), { cellDates:true });
+    const allowed = SLOT_HINT[el.id];
+    const found = detectDatasets(wb, allowed);
+    const kinds = Object.keys(found);
+    if (!kinds.length){ st.textContent = file.name + "\nNo sheets matching this slot found — expected: " + allowed.join("/") + "."; el.classList.remove("loaded"); return; }
+    for (const k of allowed) delete state.data[k]; // re-upload replaces this slot's data
+    for (const k of kinds) state.data[k] = found[k];
+    el.classList.add("loaded");
+    st.textContent = file.name + "\nFound: " + kinds.map(k=>`${k} (${found[k].rows.length} rows, sheets: ${found[k].sheets.join(", ")})`).join("; ");
+  } catch(err){ st.textContent = "Failed to read " + file.name + ": " + err.message; }
+  $("#btn-run").disabled = !state.data.resp;
+  $("#msg").textContent = state.data.resp ? "" : "Responsibility extract required to run.";
+}
+
+// ---- run
+function effectiveRules(){
+  const er = JSON.parse(JSON.stringify(rules));
+  er.custom = false;
+  if (state.data.sodconf){
+    er.conflicts = state.data.sodconf.rows
+      .map(r=>({ a:String(r.a??"").trim(), b:String(r.b??"").trim(), risk:(String(r.risk??"").trim().toUpperCase()||"HIGH"), desc:String(r.desc??"") }))
+      .filter(c=>c.a&&c.b);
+    er.custom = true;
+  }
+  if (state.data.sodclass){
+    er.classifications = state.data.sodclass.rows
+      .map(r=>({ cat:String(r.cat??"").trim(), apps:String(r.apps??"").trim(), name:String(r.name??"") }))
+      .filter(c=>c.cat&&c.name);
+    er.custom = true;
+  }
+  return er;
+}
+// ponytail: verdicts persist in-memory across re-runs only; localStorage keyed by file hash if reload persistence ever needed
+function applyDispositions(r){
+  state.dispositions = state.dispositions || {};
+  state.fidMap = {};
+  let fid = 0;
+  const wire = (rows, keyFn) => rows.forEach(f=>{
+    f._fid = fid++; f._dkey = keyFn(f);
+    state.fidMap[f._fid] = f;
+    if (state.dispositions[f._dkey]) f.disposition = state.dispositions[f._dkey];
+  });
+  wire(r.sod, f=>`S|${f.user}|${f.rule}`);
+  wire(r.leavers, f=>`L|${f.employee}|${f.finding}`);
+  wire(r.joiners, f=>`J|${f.employee}|${f.finding}`);
+}
+$("#btn-run").addEventListener("click", ()=>{
+  $("#msg").textContent = "Running…";
+  setTimeout(()=>{
+    const er = effectiveRules();
+    state.rulesUsed = er;
+    state.results = runReview(state.data, er, new Date());
+    applyDispositions(state.results);
+    $("#btn-xlsx").disabled = $("#btn-word").disabled = false;
+    renderDash(); showTab(state.tab==="rules"?"sod":state.tab);
+    $("#msg").textContent = er.custom ? "Done — using uploaded custom SoD matrix." : "Done — using built-in Oracle EBS SoD matrix.";
+  }, 20);
+});
+
+function renderDash(){
+  const s = state.results.summary;
+  const dash = $("#dash"); dash.hidden = false;
+  dash.innerHTML = [
+    ["", s.oracleUsers, "Oracle users"], ["", s.respRows, "Access rows"],
+    ["crit", s.sodCritical, "SoD critical"], ["high", s.sodHigh, "SoD high"], ["med", s.sodMedium, "SoD medium"],
+    ["high", s.leaverHigh, "Leavers w/ active access"], ["med", s.leaverOther, "Leaver exceptions"],
+    ["info", s.joiners, "Joiners reviewed"], ["med", s.unmatched, "Unmatched"]
+  ].map(([c,n,l])=>`<div class="stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  renderCharts();
+}
+
+const SEV_COLOR = { CRITICAL:"#6e1226", HIGH:"#a02c30", MEDIUM:"#8a6118", LOW:"#5c6774", INFO:"#2f5678", OK:"#1f6343" };
+function barChart(title, sub, entries, colorFn, wide){
+  if (!entries.length) return `<div class="chart${wide?" wide":""}"><h3>${title} <small>${sub}</small></h3><div class="note">No data.</div></div>`;
+  const max = Math.max(...entries.map(e=>e[1]));
+  return `<div class="chart${wide?" wide":""}"><h3>${esc(title)} <small>${esc(sub)}</small></h3>` + entries.map(([label,n])=>
+    `<div class="brow" title="${esc(label)}: ${n}"><span class="blab">${esc(label)}</span>` +
+    `<div class="btrack"><div class="bfill" style="width:${Math.round(n/max*100)}%${colorFn?`;background:${colorFn(label)}`:""}"></div></div>` +
+    `<span class="bval">${n}</span></div>`).join("") + `</div>`;
+}
+function renderCharts(){
+  const r = state.results;
+  const el = $("#charts"); el.hidden = false;
+
+  const sev = {};
+  for (const f of r.sod) sev[f.severity] = (sev[f.severity]||0)+1;
+  for (const f of r.leavers) if (f.severity!=="OK") sev[f.severity] = (sev[f.severity]||0)+1;
+  const sevEntries = Object.keys(SEV_COLOR).filter(s=>sev[s]).map(s=>[s, sev[s]]);
+
+  const rules = {};
+  for (const f of r.sod) rules[f.rule] = (rules[f.rule]||0)+1;
+  const ruleEntries = Object.entries(rules).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  const mods = {};
+  for (const u of r.uar) if (u.active==="Yes") mods[u.app||"(none)"] = (mods[u.app||"(none)"]||0)+1;
+  let modEntries = Object.entries(mods).sort((a,b)=>b[1]-a[1]);
+  if (modEntries.length > 8){
+    const rest = modEntries.slice(7).reduce((s,e)=>s+e[1],0);
+    modEntries = modEntries.slice(0,7).concat([["Other",rest]]);
+  }
+
+  el.innerHTML =
+    barChart("Findings by severity", "SoD + leaver exceptions", sevEntries, l=>SEV_COLOR[l]) +
+    barChart("Top conflict rules", "count of findings", ruleEntries, null, true) +
+    barChart("Active access by module", "responsibility rows", modEntries);
+}
+
+// ---- tabs
+document.querySelectorAll("#tabs button").forEach(b=>b.addEventListener("click",()=>showTab(b.dataset.tab)));
+function showTab(tab){
+  state.tab = tab;
+  document.querySelectorAll("#tabs button").forEach(b=>b.classList.toggle("on", b.dataset.tab===tab));
+  const p = $("#panel"); p.innerHTML = "";
+  if (tab==="rules") return renderRules(p);
+  if (!state.results){ p.innerHTML = '<span class="note">Load files and click <b>Run review</b>.</span>'; return; }
+  const chip = v => `<span class="chip ${v}">${v}</span>`;
+  const disp = (v,r) => `<select class="disp ${v==="True Positive"?"tp":v==="False Positive"?"fp":""}" data-fid="${r._fid}">
+    <option value=""${!v?" selected":""}>—</option>
+    <option${v==="True Positive"?" selected":""}>True Positive</option>
+    <option${v==="False Positive"?" selected":""}>False Positive</option></select>`;
+  const defs = {
+    sod:      { rows:state.results.sod, cols:[["severity","Severity",chip],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk description"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
+    leavers:  { rows:state.results.leavers, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["exitDate","Exit date"],["oracleUser","Oracle user"],["email","Email"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
+    joiners:  { rows:state.results.joiners, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["joinDate","Join date"],["status","HR status"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Access granted"],["disposition","Verdict",disp]] },
+    uar:      { rows:state.results.uar, cols:[["user","Oracle user"],["employee","Employee"],["empStatus","Emp status"],["resp","Responsibility"],["app","App"],["start","Start"],["end","End"],["active","Active"],["categories","Access categories"],["conflicts","Conflict findings"]] },
+    unmatched:{ rows:state.results.unmatched, cols:[["type","Type"],["item","Item"],["detail","Detail"]] }
+  };
+  const d = defs[tab];
+  renderTable(p, d.rows, d.cols);
+}
+
+// verdict selects (delegated — survives table redraws)
+$("#panel").addEventListener("change", e=>{
+  if (!e.target.matches("select.disp")) return;
+  const row = state.fidMap?.[e.target.dataset.fid];
+  if (!row) return;
+  row.disposition = e.target.value;
+  state.dispositions[row._dkey] = e.target.value;
+  e.target.className = "disp " + (e.target.value==="True Positive"?"tp":e.target.value==="False Positive"?"fp":"");
+});
+
+// ---- generic paged/filtered/sorted table
+function renderTable(container, rows, colDefs){
+  const PAGE = 100;
+  let filtered = rows, page = 0, sortK = null, sortDir = 1;
+  const bar = document.createElement("div"); bar.className = "tbar";
+  bar.innerHTML = `<input type="text" placeholder="Filter…"><span class="cnt"></span>`;
+  const wrap = document.createElement("div"); wrap.className = "tblwrap";
+  const pager = document.createElement("div"); pager.className = "pager";
+  container.append(bar, wrap, pager);
+  const inp = bar.querySelector("input"), cnt = bar.querySelector(".cnt");
+  inp.addEventListener("input", ()=>{
+    const q = inp.value.toLowerCase();
+    filtered = q ? rows.filter(r => colDefs.some(([k]) => String(r[k]??"").toLowerCase().includes(q))) : rows;
+    page = 0; draw();
+  });
+  function draw(){
+    let data = filtered;
+    if (sortK) data = [...filtered].sort((a,b)=>String(a[sortK]??"").localeCompare(String(b[sortK]??""),undefined,{numeric:true})*sortDir);
+    const pages = Math.max(1, Math.ceil(data.length/PAGE));
+    page = Math.min(page, pages-1);
+    const slice = data.slice(page*PAGE,(page+1)*PAGE);
+    wrap.innerHTML = `<table><thead><tr>${colDefs.map(([k,l])=>`<th data-k="${k}">${l}${sortK===k?(sortDir>0?" ▲":" ▼"):""}</th>`).join("")}</tr></thead><tbody>${
+      slice.map(r=>`<tr>${colDefs.map(([k,,fn])=>`<td>${fn?fn(r[k],r):esc(r[k])}</td>`).join("")}</tr>`).join("")}</tbody></table>`;
+    wrap.querySelectorAll("th").forEach(th=>th.addEventListener("click",()=>{
+      const k = th.dataset.k;
+      if (sortK===k) sortDir*=-1; else { sortK=k; sortDir=1; }
+      draw();
+    }));
+    cnt.textContent = `${data.length} row(s)`;
+    pager.innerHTML = pages>1 ? `<button class="mini sec" ${page===0?"disabled":""} id="pg-prev">‹ Prev</button> Page ${page+1} / ${pages} <button class="mini sec" ${page>=pages-1?"disabled":""} id="pg-next">Next ›</button>` : "";
+    const pv=pager.querySelector("#pg-prev"), nx=pager.querySelector("#pg-next");
+    if (pv) pv.addEventListener("click",()=>{page--;draw();});
+    if (nx) nx.addEventListener("click",()=>{page++;draw();});
+  }
+  draw();
+}
+const esc = v => String(v??"").replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+// ---- rules editor
+function renderRules(p){
+  p.classList.add("rules");
+  p.innerHTML = `
+    <div class="note">Patterns are case-insensitive regular expressions. Edits apply after <b>Save rules</b> (re-run review to refresh findings). Stored in this browser only.
+    <b>Note:</b> if a custom SoD matrix file is uploaded in slot 4, its conflicts/classifications override the tables below at run time.</div>
+    <h3>Global patterns</h3>
+    <table><tr><td style="width:220px">Read-only (excluded from SoD)</td><td><input type="text" id="r-readonly" value="${esc(rules.readonly)}"></td></tr>
+    <tr><td>Generic / shared account</td><td><input type="text" id="r-generic" value="${esc(rules.generic)}"></td></tr>
+    <tr><td>Super-user flag</td><td><input type="text" id="r-superuser" value="${esc(rules.superuser)}"></td></tr></table>
+    <h3>Responsibility classification (name pattern → access category)</h3>
+    <div class="tblwrap" style="max-height:none"><table id="r-class"><thead><tr><th>Category</th><th>App filter (comma-sep, blank = any)</th><th>Name pattern (regex)</th><th></th></tr></thead><tbody></tbody></table></div>
+    <button class="mini sec" id="r-addclass">+ Add classification</button>
+    <h3>Conflict matrix (category × category)</h3>
+    <div class="tblwrap" style="max-height:none"><table id="r-conf"><thead><tr><th>Category A</th><th>Category B</th><th>Risk</th><th>Description</th><th></th></tr></thead><tbody></tbody></table></div>
+    <button class="mini sec" id="r-addconf">+ Add conflict</button>
+    <p><button id="r-save">Save rules</button> <button class="danger" id="r-reset">Reset to defaults</button> <span id="r-msg" class="note"></span></p>`;
+  const ctb = p.querySelector("#r-class tbody"), ftb = p.querySelector("#r-conf tbody");
+  const classRow = c => { const tr=document.createElement("tr"); tr.innerHTML =
+    `<td><input type="text" value="${esc(c.cat)}"></td><td><input type="text" value="${esc(c.apps)}"></td><td><input type="text" value="${esc(c.name)}"></td><td><button class="mini danger">✕</button></td>`;
+    tr.querySelector("button").addEventListener("click",()=>tr.remove()); return tr; };
+  const confRow = c => { const tr=document.createElement("tr"); tr.innerHTML =
+    `<td><input type="text" value="${esc(c.a)}"></td><td><input type="text" value="${esc(c.b)}"></td><td><input type="text" value="${esc(c.risk)}"></td><td><input type="text" value="${esc(c.desc)}"></td><td><button class="mini danger">✕</button></td>`;
+    tr.querySelector("button").addEventListener("click",()=>tr.remove()); return tr; };
+  rules.classifications.forEach(c=>ctb.append(classRow(c)));
+  rules.conflicts.forEach(c=>ftb.append(confRow(c)));
+  p.querySelector("#r-addclass").addEventListener("click",()=>ctb.append(classRow({cat:"",apps:"",name:""})));
+  p.querySelector("#r-addconf").addEventListener("click",()=>ftb.append(confRow({a:"",b:"",risk:"HIGH",desc:""})));
+  p.querySelector("#r-reset").addEventListener("click",()=>{ rules = JSON.parse(JSON.stringify(DEFAULT_RULES)); saveRules(); renderRules(p); });
+  p.querySelector("#r-save").addEventListener("click",()=>{
+    const bad = [];
+    const chk = (s,l)=>{ try{ new RegExp(s); }catch(e){ bad.push(l+": "+e.message); } };
+    const nr = {
+      readonly: p.querySelector("#r-readonly").value, generic: p.querySelector("#r-generic").value, superuser: p.querySelector("#r-superuser").value,
+      classifications: [...ctb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), apps:tr.cells[1].firstChild.value.trim(), name:tr.cells[2].firstChild.value})).filter(c=>c.cat&&c.name),
+      conflicts: [...ftb.rows].map(tr=>({a:tr.cells[0].firstChild.value.trim(), b:tr.cells[1].firstChild.value.trim(), risk:tr.cells[2].firstChild.value.trim().toUpperCase()||"HIGH", desc:tr.cells[3].firstChild.value})).filter(c=>c.a&&c.b)
+    };
+    chk(nr.readonly,"read-only"); chk(nr.generic,"generic"); chk(nr.superuser,"super-user");
+    nr.classifications.forEach(c=>chk(c.name,"classification "+c.cat));
+    const msg = p.querySelector("#r-msg");
+    if (bad.length){ msg.innerHTML = '<span class="err">'+esc(bad.join("\n"))+"</span>"; return; }
+    rules = nr; saveRules();
+    msg.textContent = "Saved. Click 'Run review' to apply.";
+  });
+}
+
+// ---- Excel export
+$("#btn-xlsx").addEventListener("click", ()=>{
+  const r = state.results;
+  const wb = XLSX.utils.book_new();
+  const s = r.summary;
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
+    ["UAR & SoD Review — Summary"], ["Generated", new Date().toISOString().slice(0,10)], [],
+    ["Oracle users", s.oracleUsers], ["Access rows", s.respRows],
+    ["SoD critical", s.sodCritical], ["SoD high", s.sodHigh], ["SoD medium", s.sodMedium],
+    ["Leavers with active access", s.leaverHigh], ["Other leaver exceptions", s.leaverOther],
+    ["Joiners reviewed", s.joiners], ["Unmatched items", s.unmatched]
+  ]), "Summary");
+  const add = (name, rows) => XLSX.utils.book_append_sheet(wb,
+    XLSX.utils.json_to_sheet(rows.length?rows.map(({_fid,_dkey,...rest})=>rest):[{note:"No findings"}]), name);
+  add("SoD Conflicts", r.sod); add("Leavers", r.leavers); add("Joiners", r.joiners); add("Full UAR", r.uar); add("Unmatched", r.unmatched);
+  XLSX.writeFile(wb, "UAR_SoD_Findings.xlsx");
+});
+
+// ---- Word report (HTML saved as .doc — opens natively in Word)
+$("#btn-word").addEventListener("click", ()=>{
+  const r = state.results, s = r.summary, today = new Date().toISOString().slice(0,10);
+  const tbl = (rows, cols, cap=300) => rows.length ? `<table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse;font-size:10pt">
+    <tr>${cols.map(([,l])=>`<th style="background:#eef1f5">${l}</th>`).join("")}</tr>
+    ${rows.slice(0,cap).map(x=>`<tr>${cols.map(([k])=>`<td>${esc(x[k])}</td>`).join("")}</tr>`).join("")}</table>
+    ${rows.length>cap?`<p><i>Showing first ${cap} of ${rows.length} rows — full detail in Excel export.</i></p>`:""}` : "<p><i>No findings.</i></p>";
+  const html = `<html><head><meta charset="utf-8"><title>UAR Report</title></head>
+  <body style="font-family:Calibri,sans-serif;font-size:11pt">
+  <h1>User Access Review &amp; Segregation of Duties Report</h1>
+  <p><b>System:</b> Oracle ERP &nbsp; <b>Date:</b> ${today} &nbsp; <b>Prepared by:</b> ________________</p>
+  <h2>1. Scope &amp; Method</h2>
+  <p>This review covers ${s.oracleUsers} Oracle users and ${s.respRows} user-responsibility assignments. Oracle users were matched to
+  employees via the email local-part of the name/email mapping file. Checks performed: leaver access, joiner access, segregation of
+  duties (responsibility-level, ${(state.rulesUsed&&state.rulesUsed.custom)?"client-provided custom":"built-in Oracle EBS"} rule matrix of
+  ${(state.rulesUsed||rules).conflicts.length} conflicts across ${(state.rulesUsed||rules).classifications.length} access categories), and full access dump.
+  Inquiry/read-only responsibilities are excluded from SoD analysis.</p>
+  <h2>2. Summary of Findings</h2>
+  <table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse">
+  <tr><th style="background:#eef1f5">Area</th><th style="background:#eef1f5">Count</th></tr>
+  <tr><td>SoD — Critical</td><td>${s.sodCritical}</td></tr><tr><td>SoD — High</td><td>${s.sodHigh}</td></tr>
+  <tr><td>SoD — Medium</td><td>${s.sodMedium}</td></tr><tr><td>Leavers with active access</td><td>${s.leaverHigh}</td></tr>
+  <tr><td>Other leaver exceptions</td><td>${s.leaverOther}</td></tr><tr><td>Joiners reviewed</td><td>${s.joiners}</td></tr>
+  <tr><td>Unmatched users/employees</td><td>${s.unmatched}</td></tr></table>
+  <h2>3. Segregation of Duties Conflicts</h2>
+  ${tbl(r.sod,[["severity","Severity"],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk"],["resps","Responsibilities"],["disposition","Verdict"]])}
+  <h2>4. Leaver Access</h2>
+  ${tbl(r.leavers.filter(x=>x.severity!=="OK"),[["severity","Severity"],["employee","Employee"],["exitDate","Exit date"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict"]])}
+  <p><i>${r.leavers.filter(x=>x.severity==="OK").length} leaver(s) verified with all access properly end-dated.</i></p>
+  <h2>5. Joiner Access</h2>
+  ${tbl(r.joiners,[["employee","Employee"],["joinDate","Join date"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Access"]])}
+  <h2>6. Unmatched Items</h2>
+  ${tbl(r.unmatched,[["type","Type"],["item","Item"],["detail","Detail"]])}
+  <h2>7. Recommendations</h2>
+  <ul><li>Revoke or re-assign responsibilities driving Critical/High SoD conflicts; where retention is required, document compensating controls.</li>
+  <li>End-date all responsibilities of exited employees immediately upon exit; align deprovisioning with HR exit workflow.</li>
+  <li>Replace generic/shared accounts holding transactional access with named accounts.</li>
+  <li>Resolve unmatched Oracle users by adding employee identifiers to the mapping extract.</li></ul>
+  </body></html>`;
+  const blob = new Blob(["﻿"+html], {type:"application/msword"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = "UAR_SoD_Report.doc"; a.click();
+  URL.revokeObjectURL(a.href);
+});
+</script>
+</body>
+</html>

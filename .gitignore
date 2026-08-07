@@ -1,0 +1,6 @@
+# Data files contain employee PII — never commit
+*.xlsx
+*.xls
+*.doc
+*.docx
+.playwright-mcp/
