@@ -134,18 +134,18 @@
 <main>
   <div class="cards">
     <div class="card slot" id="slot-uar">
-      <h3>1 · UAR file (Overall / Joiner / Exit)</h3>
-      <div class="st">Click or drop .xlsx here</div>
+      <h3>1 · UAR file (Overall / Joiner / Exit) — optional</h3>
+      <div class="st">Click or drop .xlsx here. Needed for leaver/joiner checks.</div>
       <input type="file" accept=".xlsx,.xls">
     </div>
     <div class="card slot" id="slot-resp">
-      <h3>2 · Oracle responsibility extract</h3>
-      <div class="st">Click or drop .xlsx here</div>
+      <h3>2 · Oracle responsibility extract — required</h3>
+      <div class="st">Click or drop .xlsx here. SoD analysis runs on this alone.</div>
       <input type="file" accept=".xlsx,.xls">
     </div>
     <div class="card slot" id="slot-map">
-      <h3>3 · Name / email mapping (Name_Oracle)</h3>
-      <div class="st">Click or drop .xlsx here</div>
+      <h3>3 · Name / email mapping (Name_Oracle) — optional</h3>
+      <div class="st">Click or drop .xlsx here. Links Oracle users to employees.</div>
       <input type="file" accept=".xlsx,.xls">
     </div>
     <div class="card slot" id="slot-sod">
@@ -481,12 +481,13 @@ function runReview(data, rules, today){
   // ---- 4. Full UAR dump + unmatched Oracle users
   const conflictCount = new Map();
   for (const f of [...out.sod, ...out.sodAdmin]){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
+  const hasMap = (data.map?.rows||[]).length > 0;
   for (const [u,resps] of users){
     const m = mapForUser(u);
     const emp = m ? empForName(m.full) : null;
-    if (!m) out.unmatched.push({ type:"Oracle user", item:u, detail:"Username does not match any email local-part in mapping file" });
+    if (!m && hasMap) out.unmatched.push({ type:"Oracle user", item:u, detail:"Username does not match any email local-part in mapping file" });
     for (const r of resps)
-      out.uar.push({ user:u, employee: m?m.full.replace(/,\s*$/,""):"—", empId: emp?emp.id||"":"", empStatus: emp?emp.status:(m?"Not in UAR sheets":"UNMATCHED"),
+      out.uar.push({ user:u, employee: m?m.full.replace(/,\s*$/,""):"—", empId: emp?emp.id||"":"", empStatus: emp?emp.status:(m?"Not in UAR sheets":(hasMap?"UNMATCHED":"—")),
         resp:r.resp, app:r.app, start:fmtDate(r.start), end:fmtDate(r.end), active: r.active?"Yes":"No",
         categories:r.cats.join(", "), conflicts: conflictCount.get(u)||0 });
   }
