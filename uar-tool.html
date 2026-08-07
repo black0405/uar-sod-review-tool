@@ -167,6 +167,7 @@
 
   <div class="tabs" id="tabs">
     <button data-tab="sod" class="on">SoD conflicts</button>
+    <button data-tab="sodadmin">Admin SoD</button>
     <button data-tab="leavers">Leavers</button>
     <button data-tab="joiners">Joiners</button>
     <button data-tab="uar">Full UAR</button>
@@ -188,44 +189,76 @@ const DEFAULT_RULES = {
   superuser: "super user",
   adminExclude: "^SYSADMIN$|^APPS$|^GUEST$|^ANONYMOUS$|^AUTOINSTALL$|^WIZARD$|^FEEDER|^CONCURRENT|^INITIAL SETUP|^STANDALONE|^ASGADM$|^MOBILEADM|^IBE|^IRC|^OAM|^XML",
   classifications: [
+    // Procure-to-Pay
+    { cat:"SUPPLIER_MAINT",   apps:"",          name:"supplier|vendor" },
+    { cat:"PO_REQUISITION",   apps:"PO,ICX",    name:"requisition|iprocurement|i-procurement" },
+    { cat:"PO_CREATE",        apps:"PO",        name:"(\\bpo\\b|purchas\\w*).*(manager|super user|buyer|\\buser\\b)|\\bbuyer\\b" },
+    { cat:"PO_RECEIVING",     apps:"",          name:"receiving" },
     { cat:"AP_INVOICE_ENTRY", apps:"SQLAP",     name:"(\\bap\\b|payables?\\b).*(manager|super user|entry|invoice|consultant|\\buser\\b)" },
-    { cat:"AP_PAYMENTS",      apps:"SQLAP,CE",  name:"payment" },
+    { cat:"AP_PAYMENTS",      apps:"SQLAP,CE",  name:"payment|disbursement" },
+    { cat:"EXPENSE_AUDIT",    apps:"",          name:"\\boie\\b|expense.*audit|auditor" },
+    // Order-to-Cash
+    { cat:"CUSTOMER_MAINT",   apps:"",          name:"customer.*(maint\\w*|master|manager|super user|\\buser\\b)" },
+    { cat:"OM_ORDER_ENTRY",   apps:"ONT",       name:"(\\bom\\b|order).*(manager|super user|entry|\\buser\\b)|sales admin" },
+    { cat:"OM_SHIPPING",      apps:"ONT,WSH",   name:"shipping|ship confirm|\\bwsh\\b" },
+    { cat:"AR_MAINTAIN",      apps:"AR",        name:"(\\bar\\b|receivables?\\b).*(manager|super user|\\buser\\b)" },
+    { cat:"AR_CASH",          apps:"AR,CE",     name:"cash|remittance|receipt|lockbox" },
+    // Record-to-Report
     { cat:"GL_JOURNAL",       apps:"SQLGL",     name:"(\\bgl\\b|general ledger).*(manager|super user|entry|consultant|\\buser\\b)|journal" },
     { cat:"GL_PERIOD_CONTROL",apps:"",          name:"period control|open/?close period" },
-    { cat:"PO_CREATE",        apps:"PO",        name:"(\\bpo\\b|purchas\\w*).*(manager|super user|buyer|\\buser\\b)" },
-    { cat:"PO_RECEIVING",     apps:"",          name:"receiving" },
-    { cat:"INV_MAINTAIN",     apps:"INV",       name:"(\\binv\\b|inventory).*(manager|super user|\\buser\\b)" },
-    { cat:"AR_MAINTAIN",      apps:"AR",        name:"(\\bar\\b|receivables?\\b).*(manager|super user|\\buser\\b)" },
-    { cat:"AR_CASH",          apps:"AR,CE",     name:"cash|remittance|receipt" },
-    { cat:"OM_ORDER_ENTRY",   apps:"ONT",       name:"(\\bom\\b|order).*(manager|super user|entry|\\buser\\b)|sales admin" },
-    { cat:"CUSTOMER_MAINT",   apps:"",          name:"customer.*(maint\\w*|master|manager|super user|\\buser\\b)" },
-    { cat:"SUPPLIER_MAINT",   apps:"",          name:"supplier|vendor" },
-    { cat:"CST_MAINTAIN",     apps:"CST,BOM",   name:"(\\bcst\\b|cost\\w*).*(manager|super user|\\buser\\b)" },
+    { cat:"GL_SETUP",         apps:"SQLGL",     name:"(\\bgl\\b|ledger).*(setup|configurat\\w*)|flexfield|cross.?validation" },
+    { cat:"CE_RECON",         apps:"CE",        name:"cash management|bank.*(recon\\w*|statement)|\\bce\\b.*(manager|super user|\\buser\\b)" },
     { cat:"FA_MAINTAIN",      apps:"OFA",       name:"(\\bfa\\b|assets?\\b).*(manager|super user|\\buser\\b)" },
+    // Inventory / Costing
+    { cat:"INV_MAINTAIN",     apps:"INV",       name:"(\\binv\\b|inventory).*(manager|super user|\\buser\\b)" },
+    { cat:"INV_COUNT",        apps:"INV",       name:"cycle count|physical (count\\w*|inventory)" },
+    { cat:"CST_MAINTAIN",     apps:"CST,BOM",   name:"(\\bcst\\b|cost\\w*).*(manager|super user|\\buser\\b)" },
+    // HR / Payroll
     { cat:"HR_MAINTAIN",      apps:"PER",       name:"\\bhr\\b|human resource" },
     { cat:"PAYROLL",          apps:"PAY",       name:"payroll" },
-    { cat:"SYSADMIN",         apps:"",          name:"system administrat\\w*|sysadmin|application developer|security administrat\\w*|user management|workflow administrat\\w*" },
-    { cat:"EXPENSE_AUDIT",    apps:"",          name:"\\boie\\b|expense.*audit|auditor" }
+    // System administration
+    { cat:"SYSADMIN",         apps:"",          name:"system administrat\\w*|sysadmin|application developer|security administrat\\w*|user management|workflow administrat\\w*|functional administrat\\w*|\\balert\\b.*manager" }
   ],
   conflicts: [
-    { a:"AP_INVOICE_ENTRY", b:"GL_JOURNAL",       risk:"HIGH",   desc:"Enter supplier invoices and post GL journals — can conceal fictitious payables" },
-    { a:"AP_INVOICE_ENTRY", b:"AP_PAYMENTS",      risk:"HIGH",   desc:"Enter invoices and run payments — end-to-end fraudulent disbursement" },
-    { a:"AP_INVOICE_ENTRY", b:"SUPPLIER_MAINT",   risk:"HIGH",   desc:"Create/modify suppliers and enter their invoices — fictitious vendor risk" },
-    { a:"AP_PAYMENTS",      b:"SUPPLIER_MAINT",   risk:"HIGH",   desc:"Maintain supplier bank details and pay them — payment diversion" },
-    { a:"PO_CREATE",        b:"AP_INVOICE_ENTRY", risk:"HIGH",   desc:"Raise purchase orders and enter matching invoices — bypasses purchasing control" },
+    // Procure-to-Pay
+    { a:"SUPPLIER_MAINT",   b:"AP_INVOICE_ENTRY", risk:"HIGH",   desc:"Create/modify suppliers and enter their invoices — fictitious vendor risk" },
+    { a:"SUPPLIER_MAINT",   b:"AP_PAYMENTS",      risk:"HIGH",   desc:"Maintain supplier bank details and pay them — payment diversion" },
+    { a:"SUPPLIER_MAINT",   b:"PO_CREATE",        risk:"MEDIUM", desc:"Maintain suppliers and raise purchase orders — can steer spend to own vendor" },
+    { a:"PO_REQUISITION",   b:"PO_CREATE",        risk:"MEDIUM", desc:"Raise requisitions and convert to purchase orders — bypasses demand approval" },
+    { a:"PO_REQUISITION",   b:"PO_RECEIVING",     risk:"MEDIUM", desc:"Request goods and receipt them — unauthorized procurement" },
     { a:"PO_CREATE",        b:"PO_RECEIVING",     risk:"HIGH",   desc:"Order goods and receipt them — phantom receipt risk" },
+    { a:"PO_CREATE",        b:"AP_INVOICE_ENTRY", risk:"HIGH",   desc:"Raise purchase orders and enter matching invoices — bypasses purchasing control" },
     { a:"PO_RECEIVING",     b:"AP_INVOICE_ENTRY", risk:"MEDIUM", desc:"Receipt goods and enter invoices — can force 3-way match" },
+    { a:"PO_RECEIVING",     b:"INV_MAINTAIN",     risk:"MEDIUM", desc:"Receipt goods and adjust inventory — misappropriation cover-up" },
+    { a:"AP_INVOICE_ENTRY", b:"AP_PAYMENTS",      risk:"HIGH",   desc:"Enter invoices and run payments — end-to-end fraudulent disbursement" },
+    { a:"AP_INVOICE_ENTRY", b:"GL_JOURNAL",       risk:"HIGH",   desc:"Enter supplier invoices and post GL journals — can conceal fictitious payables" },
+    { a:"AP_INVOICE_ENTRY", b:"EXPENSE_AUDIT",    risk:"MEDIUM", desc:"Enter payables and audit expense reports — self-approval exposure" },
+    { a:"AP_INVOICE_ENTRY", b:"FA_MAINTAIN",      risk:"MEDIUM", desc:"Enter invoices and create assets — fictitious asset capitalization" },
+    { a:"AP_PAYMENTS",      b:"CE_RECON",         risk:"HIGH",   desc:"Run payments and reconcile bank statements — conceals fraudulent disbursements" },
+    { a:"AP_PAYMENTS",      b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Run payments and post GL journals" },
+    // Order-to-Cash
+    { a:"CUSTOMER_MAINT",   b:"OM_ORDER_ENTRY",   risk:"MEDIUM", desc:"Change customer credit limits and enter orders" },
+    { a:"CUSTOMER_MAINT",   b:"AR_MAINTAIN",      risk:"MEDIUM", desc:"Maintain customers and their receivables/credit memos" },
+    { a:"CUSTOMER_MAINT",   b:"AR_CASH",          risk:"MEDIUM", desc:"Maintain customer master and apply cash — misapplication risk" },
+    { a:"OM_ORDER_ENTRY",   b:"OM_SHIPPING",      risk:"MEDIUM", desc:"Enter orders and ship-confirm them — unauthorized shipment" },
     { a:"OM_ORDER_ENTRY",   b:"AR_MAINTAIN",      risk:"HIGH",   desc:"Enter sales orders and maintain receivables/credit memos on the same customers" },
+    { a:"OM_SHIPPING",      b:"AR_MAINTAIN",      risk:"MEDIUM", desc:"Ship goods and issue credit memos — diverted shipment concealment" },
+    { a:"OM_SHIPPING",      b:"INV_MAINTAIN",     risk:"MEDIUM", desc:"Ship goods and adjust inventory — shrinkage concealment" },
     { a:"AR_MAINTAIN",      b:"AR_CASH",          risk:"HIGH",   desc:"Adjust receivables and apply cash — lapping / concealment risk" },
     { a:"AR_MAINTAIN",      b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Adjust receivables and post GL journals" },
-    { a:"AR_MAINTAIN",      b:"CUSTOMER_MAINT",   risk:"MEDIUM", desc:"Maintain customers (credit limits) and their receivables" },
-    { a:"OM_ORDER_ENTRY",   b:"CUSTOMER_MAINT",   risk:"MEDIUM", desc:"Enter orders and change customer credit limits" },
+    { a:"AR_CASH",          b:"CE_RECON",         risk:"HIGH",   desc:"Apply cash receipts and reconcile bank — lapping concealment via bank rec" },
+    { a:"AR_CASH",          b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Apply cash and post GL journals" },
+    // Record-to-Report
     { a:"GL_JOURNAL",       b:"GL_PERIOD_CONTROL",risk:"HIGH",   desc:"Post journals and open/close periods — post-close manipulation" },
-    { a:"INV_MAINTAIN",     b:"PO_RECEIVING",     risk:"MEDIUM", desc:"Adjust inventory and receipt goods — inventory misappropriation cover-up" },
-    { a:"INV_MAINTAIN",     b:"CST_MAINTAIN",     risk:"MEDIUM", desc:"Adjust inventory quantities and costs" },
+    { a:"GL_JOURNAL",       b:"GL_SETUP",         risk:"MEDIUM", desc:"Alter ledger configuration/flexfields and post journals" },
+    { a:"GL_JOURNAL",       b:"CE_RECON",         risk:"MEDIUM", desc:"Post journals and reconcile bank statements" },
     { a:"FA_MAINTAIN",      b:"GL_JOURNAL",       risk:"MEDIUM", desc:"Maintain assets and post GL journals" },
+    // Inventory / Costing
+    { a:"INV_MAINTAIN",     b:"INV_COUNT",        risk:"HIGH",   desc:"Adjust inventory and perform counts — conceals shrinkage/theft" },
+    { a:"INV_MAINTAIN",     b:"CST_MAINTAIN",     risk:"MEDIUM", desc:"Adjust inventory quantities and costs" },
+    // HR / Payroll
     { a:"HR_MAINTAIN",      b:"PAYROLL",          risk:"HIGH",   desc:"Maintain employees and process payroll — ghost employee risk" },
-    { a:"AP_INVOICE_ENTRY", b:"EXPENSE_AUDIT",    risk:"MEDIUM", desc:"Enter payables and audit expense reports — self-approval exposure" }
+    { a:"PAYROLL",          b:"AP_PAYMENTS",      risk:"MEDIUM", desc:"Process payroll and run AP payments — duplicate/parallel disbursement channels" }
   ]
 };
 
@@ -305,7 +338,7 @@ function classifyResp(name, app, R){
 
 function runReview(data, rules, today){
   const R = compileRules(rules);
-  const out = { leavers:[], joiners:[], sod:[], uar:[], unmatched:[], summary:{} };
+  const out = { leavers:[], joiners:[], sod:[], sodAdmin:[], uar:[], unmatched:[], summary:{} };
 
   // ---- group responsibilities per Oracle user
   const users = new Map();
@@ -416,41 +449,38 @@ function runReview(data, rules, today){
   // ---- 3. SoD (active responsibilities only)
   for (const [u,resps] of users){
     const act = resps.filter(r=>r.active);
-    if (R.admin.test(u)){
-      if (act.length) out.unmatched.push({ type:"Excluded admin/system account", item:u,
-        detail:`Skipped SoD analysis per admin exclusion pattern — holds ${act.length} active responsibility(ies)` });
-      continue;
-    }
+    const sink = R.admin.test(u) ? out.sodAdmin : out.sod;
     const m = mapForUser(u);
     const emp = m ? empForName(m.full) : null;
     const who = m ? m.full.replace(/,\s*$/,"") : "";
     const catMap = new Map(); // cat -> resp names
     for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r.resp); }
     if (R.generic.test(u) && act.length)
-      out.sod.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
+      sink.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
         detail:`Account name matches generic pattern; holds ${act.length} active responsibility(ies) — no individual accountability`,
         resps: act.map(r=>r.resp).join("; ") });
     if (catMap.has("SYSADMIN"))
-      out.sod.push({ disposition:"", severity:"CRITICAL", user:u, employee:who, rule:"SYSADMIN / SECURITY ADMIN",
+      sink.push({ disposition:"", severity:"CRITICAL", user:u, employee:who, rule:"SYSADMIN / SECURITY ADMIN",
         detail:"Holds system administration capability — can alter any user's access", resps: catMap.get("SYSADMIN").join("; ") });
     const su = act.filter(r=>R.superuser.test(r.resp));
     if (su.length)
-      out.sod.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER",
+      sink.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER",
         detail:`${su.length} super-user responsibility(ies) grant broad transactional access — confirm business need`,
         resps: su.map(r=>r.resp).join("; ") });
     for (const c of R.conflicts)
       if (catMap.has(c.a) && catMap.has(c.b)){
         const ra = catMap.get(c.a), rb = catMap.get(c.b);
         if (c.a!==c.b || ra.length>1)
-          out.sod.push({ disposition:"", severity:c.risk, user:u, employee:who, rule:`${c.a} × ${c.b}`, detail:c.desc,
+          sink.push({ disposition:"", severity:c.risk, user:u, employee:who, rule:`${c.a} × ${c.b}`, detail:c.desc,
             resps:`[${c.a}] ${[...new Set(ra)].join("; ")}  |  [${c.b}] ${[...new Set(rb)].join("; ")}` });
       }
   }
-  out.sod.sort((x,y)=>(SEV_ORDER[x.severity]??9)-(SEV_ORDER[y.severity]??9) || x.user.localeCompare(y.user));
+  const bySev = (x,y)=>(SEV_ORDER[x.severity]??9)-(SEV_ORDER[y.severity]??9) || x.user.localeCompare(y.user);
+  out.sod.sort(bySev); out.sodAdmin.sort(bySev);
 
   // ---- 4. Full UAR dump + unmatched Oracle users
   const conflictCount = new Map();
-  for (const f of out.sod){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
+  for (const f of [...out.sod, ...out.sodAdmin]){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
   for (const [u,resps] of users){
     const m = mapForUser(u);
     const emp = m ? empForName(m.full) : null;
@@ -467,6 +497,7 @@ function runReview(data, rules, today){
     sodCritical: out.sod.filter(f=>f.severity==="CRITICAL").length,
     sodHigh: out.sod.filter(f=>f.severity==="HIGH").length,
     sodMedium: out.sod.filter(f=>f.severity==="MEDIUM").length,
+    sodAdmin: out.sodAdmin.length,
     leaverHigh: out.leavers.filter(f=>f.severity==="HIGH").length,
     leaverOther: out.leavers.filter(f=>f.severity!=="HIGH"&&f.severity!=="OK").length,
     joiners: out.joiners.length,
@@ -545,6 +576,7 @@ function applyDispositions(r){
     if (state.dispositions[f._dkey]) f.disposition = state.dispositions[f._dkey];
   });
   wire(r.sod, f=>`S|${f.user}|${f.rule}`);
+  wire(r.sodAdmin, f=>`A|${f.user}|${f.rule}`);
   wire(r.leavers, f=>`L|${f.employee}|${f.finding}`);
   wire(r.joiners, f=>`J|${f.employee}|${f.finding}`);
 }
@@ -567,6 +599,7 @@ function renderDash(){
   dash.innerHTML = [
     ["", s.oracleUsers, "Oracle users"], ["", s.respRows, "Access rows"],
     ["crit", s.sodCritical, "SoD critical"], ["high", s.sodHigh, "SoD high"], ["med", s.sodMedium, "SoD medium"],
+    ["info", s.sodAdmin, "Admin SoD"],
     ["high", s.leaverHigh, "Leavers w/ active access"], ["med", s.leaverOther, "Leaver exceptions"],
     ["info", s.joiners, "Joiners reviewed"], ["med", s.unmatched, "Unmatched"]
   ].map(([c,n,l])=>`<div class="stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
@@ -624,6 +657,7 @@ function showTab(tab){
     <option${v==="False Positive"?" selected":""}>False Positive</option></select>`;
   const defs = {
     sod:      { rows:state.results.sod, cols:[["severity","Severity",chip],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk description"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
+    sodadmin: { rows:state.results.sodAdmin, cols:[["severity","Severity",chip],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk description"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
     leavers:  { rows:state.results.leavers, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["exitDate","Exit date"],["oracleUser","Oracle user"],["email","Email"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
     joiners:  { rows:state.results.joiners, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["joinDate","Join date"],["status","HR status"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Access granted"],["disposition","Verdict",disp]] },
     uar:      { rows:state.results.uar, cols:[["user","Oracle user"],["employee","Employee"],["empStatus","Emp status"],["resp","Responsibility"],["app","App"],["start","Start"],["end","End"],["active","Active"],["categories","Access categories"],["conflicts","Conflict findings"]] },
@@ -691,7 +725,7 @@ function renderRules(p){
     <table><tr><td style="width:220px">Read-only (excluded from SoD)</td><td><input type="text" id="r-readonly" value="${esc(rules.readonly)}"></td></tr>
     <tr><td>Generic / shared account</td><td><input type="text" id="r-generic" value="${esc(rules.generic)}"></td></tr>
     <tr><td>Super-user flag</td><td><input type="text" id="r-superuser" value="${esc(rules.superuser)}"></td></tr>
-    <tr><td>Admin/system accounts (excluded from SoD)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
+    <tr><td>Admin/system accounts (reported in Admin SoD tab)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
     <h3>Responsibility classification (name pattern → access category)</h3>
     <div class="tblwrap" style="max-height:none"><table id="r-class"><thead><tr><th>Category</th><th>App filter (comma-sep, blank = any)</th><th>Name pattern (regex)</th><th></th></tr></thead><tbody></tbody></table></div>
     <button class="mini sec" id="r-addclass">+ Add classification</button>
@@ -737,13 +771,13 @@ $("#btn-xlsx").addEventListener("click", ()=>{
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     ["UAR & SoD Review — Summary"], ["Generated", new Date().toISOString().slice(0,10)], [],
     ["Oracle users", s.oracleUsers], ["Access rows", s.respRows],
-    ["SoD critical", s.sodCritical], ["SoD high", s.sodHigh], ["SoD medium", s.sodMedium],
+    ["SoD critical", s.sodCritical], ["SoD high", s.sodHigh], ["SoD medium", s.sodMedium], ["Admin SoD findings", s.sodAdmin],
     ["Leavers with active access", s.leaverHigh], ["Other leaver exceptions", s.leaverOther],
     ["Joiners reviewed", s.joiners], ["Unmatched items", s.unmatched]
   ]), "Summary");
   const add = (name, rows) => XLSX.utils.book_append_sheet(wb,
     XLSX.utils.json_to_sheet(rows.length?rows.map(({_fid,_dkey,...rest})=>rest):[{note:"No findings"}]), name);
-  add("SoD Conflicts", r.sod); add("Leavers", r.leavers); add("Joiners", r.joiners); add("Full UAR", r.uar); add("Unmatched", r.unmatched);
+  add("SoD Conflicts", r.sod); add("Admin SoD", r.sodAdmin); add("Leavers", r.leavers); add("Joiners", r.joiners); add("Full UAR", r.uar); add("Unmatched", r.unmatched);
   XLSX.writeFile(wb, "UAR_SoD_Findings.xlsx");
 });
 
@@ -768,11 +802,15 @@ $("#btn-word").addEventListener("click", ()=>{
   <table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse">
   <tr><th style="background:#eef1f5">Area</th><th style="background:#eef1f5">Count</th></tr>
   <tr><td>SoD — Critical</td><td>${s.sodCritical}</td></tr><tr><td>SoD — High</td><td>${s.sodHigh}</td></tr>
-  <tr><td>SoD — Medium</td><td>${s.sodMedium}</td></tr><tr><td>Leavers with active access</td><td>${s.leaverHigh}</td></tr>
+  <tr><td>SoD — Medium</td><td>${s.sodMedium}</td></tr><tr><td>Admin/system account SoD</td><td>${s.sodAdmin}</td></tr>
+  <tr><td>Leavers with active access</td><td>${s.leaverHigh}</td></tr>
   <tr><td>Other leaver exceptions</td><td>${s.leaverOther}</td></tr><tr><td>Joiners reviewed</td><td>${s.joiners}</td></tr>
   <tr><td>Unmatched users/employees</td><td>${s.unmatched}</td></tr></table>
   <h2>3. Segregation of Duties Conflicts</h2>
   ${tbl(r.sod,[["severity","Severity"],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk"],["resps","Responsibilities"],["disposition","Verdict"]])}
+  <h3>3.1 Admin / system account conflicts</h3>
+  <p><i>Findings on accounts matching the admin/system pattern — reviewed separately as these are typically IT-owned with their own controls.</i></p>
+  ${tbl(r.sodAdmin,[["severity","Severity"],["user","Oracle user"],["rule","Rule"],["detail","Risk"],["resps","Responsibilities"],["disposition","Verdict"]])}
   <h2>4. Leaver Access</h2>
   ${tbl(r.leavers.filter(x=>x.severity!=="OK"),[["severity","Severity"],["employee","Employee"],["exitDate","Exit date"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict"]])}
   <p><i>${r.leavers.filter(x=>x.severity==="OK").length} leaver(s) verified with all access properly end-dated.</i></p>
