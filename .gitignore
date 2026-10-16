@@ -4,3 +4,5 @@
 *.doc
 *.docx
 .playwright-mcp/
+# ...except the synthetic demo files (fictional people, example.com) so the demo runs without Python
+!demo/Demo_*.xlsx
