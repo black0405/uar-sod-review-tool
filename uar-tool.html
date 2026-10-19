@@ -228,6 +228,9 @@ const DEFAULT_RULES = {
     { cat:"PAYROLL_MAINT",    apps:"PAY,PER",   name:"salary|element entr\\w*|compensation" },
     { cat:"PAYROLL_SETUP",    apps:"PAY",       name:"payroll.*(setup|config\\w*|implement\\w*)" },
     { cat:"TIME_ENTRY",       apps:"",          name:"\\btime ?(card|keep\\w*|entry|and labor)|\\botl\\b|timesheet" },
+    // Projects
+    { cat:"PA_COST",          apps:"PA",        name:"^(?!.*billing)(\\bpa\\b|projects?\\b).*(costing|expenditure|manager|super user|\\buser\\b)" },
+    { cat:"PA_BILLING",       apps:"PA",        name:"(\\bpa\\b|projects?\\b).*(billing|invoic\\w*)" },
     // System administration
     { cat:"SYSADMIN",         apps:"",          name:"system administrat\\w*|sysadmin|application developer|security administrat\\w*|user management|workflow administrat\\w*|functional administrat\\w*|\\balert\\b.*manager" }
   ],
@@ -261,6 +264,8 @@ const DEFAULT_RULES = {
     { cat:"CST_MAINTAIN",     pattern:"\\bitem costs?\\b|\\bcost update\\b" },
     { cat:"HR_MAINTAIN",      pattern:"^PER_PERWSHRG|^PER_PERWSEMP|\\benter and maintain\\b" },
     { cat:"PAYROLL",          pattern:"\\bquickpay\\b|\\bpayroll (process|run)\\b" },
+    { cat:"PA_COST",          pattern:"\\bexpenditure (batch\\w*|entry)\\b|\\bpre-?approved expenditures?\\b" },
+    { cat:"PA_BILLING",       pattern:"\\bproject invoices?\\b|\\bgenerate draft invoices?\\b" },
     { cat:"SYSADMIN",         pattern:"^FND_FNDSCAUS|^FND_FNDSCRSP|^FND_FNDMNMNU|^UMX_|\\b(define|register) users?\\b|\\buser management\\b" }
   ],
   conflicts: [
@@ -323,7 +328,16 @@ const DEFAULT_RULES = {
     { a:"HR_MAINTAIN",      b:"TIME_ENTRY",       risk:"MEDIUM", desc:"Maintain employees and enter their time — ghost employee time" },
     { a:"PAYROLL_SETUP",    b:"PAYROLL_MAINT",    risk:"MEDIUM", desc:"Change payroll configuration and maintain payroll entries" },
     { a:"TIME_ENTRY",       b:"PAYROLL_MAINT",    risk:"MEDIUM", desc:"Enter false time data and perform payroll maintenance" },
-    { a:"TIME_ENTRY",       b:"PAYROLL_SETUP",    risk:"MEDIUM", desc:"Enter time data and modify payroll configuration" }
+    { a:"TIME_ENTRY",       b:"PAYROLL_SETUP",    risk:"MEDIUM", desc:"Enter time data and modify payroll configuration" },
+    // Common SoD-matrix practice (bank / reconciliation independence, sales vs cash, receiving vs counts, projects)
+    { a:"BANK_MAINT",       b:"CE_RECON",         risk:"HIGH",   desc:"Maintain bank accounts and reconcile them — conceal a non bona-fide account" },
+    { a:"AR_MAINTAIN",      b:"CE_RECON",         risk:"MEDIUM", desc:"Adjust receivables and reconcile the bank — hide write-offs covering diverted receipts" },
+    { a:"OM_ORDER_ENTRY",   b:"AR_CASH",          risk:"MEDIUM", desc:"Enter sales orders and apply customer cash — misapply receipts to own orders" },
+    { a:"PAYROLL",          b:"CE_RECON",         risk:"MEDIUM", desc:"Process payroll and reconcile the bank — conceal fraudulent payroll payments" },
+    { a:"PO_RECEIVING",     b:"INV_COUNT",        risk:"MEDIUM", desc:"Receive goods and count inventory — conceal receipt shortfalls" },
+    { a:"PA_COST",          b:"PA_BILLING",       risk:"MEDIUM", desc:"Charge costs to projects and generate project invoices — inflate billable costs" },
+    { a:"PA_BILLING",       b:"AR_CASH",          risk:"HIGH",   desc:"Raise project invoices and apply customer cash — lapping / concealment risk" },
+    { a:"PA_BILLING",       b:"CUSTOMER_MAINT",   risk:"MEDIUM", desc:"Maintain customers and raise project invoices — fictitious billing" }
   ]
 };
 

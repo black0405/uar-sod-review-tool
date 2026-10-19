@@ -21,7 +21,8 @@
    - "End Date" is the effective end: earliest of assignment, user
      account and responsibility end dates; NULL = still open.
    - Functions: full menu tree per responsibility, after function (F)
-     and menu (M) exclusions. Responsibilities whose menus grant no
+     and menu (M) exclusions; read-only (QUERY_ONLY=YES) form variants
+     are dropped. Responsibilities whose menus grant no
      function still appear, with blank function columns.
    - To run Level 1 only, drop the rfunc join and the two function columns.
    --------------------------------------------------------------------- */
@@ -60,7 +61,8 @@ rfunc AS (  -- functions reachable per responsibility (computed once, not per us
     JOIN fnd_form_functions    fff  ON fff.function_id  = t.function_id
     JOIN fnd_form_functions_tl ffft ON ffft.function_id = fff.function_id
                                    AND ffft.language    = USERENV('LANG')
-   WHERE NOT EXISTS (SELECT 1 FROM fnd_resp_functions rf
+   WHERE NOT REGEXP_LIKE(NVL(fff.parameters, ' '), 'QUERY_ONLY *= *"?YES', 'i')  -- read-only form variants
+     AND NOT EXISTS (SELECT 1 FROM fnd_resp_functions rf
                       WHERE rf.responsibility_id = r.responsibility_id
                         AND rf.application_id    = r.application_id
                         AND (   (rf.rule_type = 'F' AND rf.action_id = fff.function_id)
@@ -141,6 +143,7 @@ SELECT DISTINCT
  CROSS JOIN resp r
  WHERE mt.grant_flag = 'Y'
    AND fff.function_id NOT IN (SELECT action_id FROM excl WHERE rule_type = 'F')
+   AND NOT REGEXP_LIKE(NVL(fff.parameters, ' '), 'QUERY_ONLY *= *"?YES', 'i')  -- read-only form variants
  ORDER BY 3;
 
 

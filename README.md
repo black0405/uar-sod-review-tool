@@ -17,7 +17,7 @@ Single-file, browser-only, offline tool for User Access Review and Segregation o
 
 ## Checks
 
-- **SoD conflicts** — responsibility-level, 54 built-in Oracle EBS conflict rules across 29 access categories (AP/GL/PO/AR/OM/INV/HR/payroll/bank/…), including all 46 conflict pairs from the City of Atlanta Oracle SoD audit (2016), generic-account and super-user flags. Inquiry/read-only responsibilities excluded. Rules editable in the UI.
+- **SoD conflicts** — responsibility-level, 62 built-in Oracle EBS conflict rules across 31 access categories (AP/GL/PO/AR/OM/INV/HR/payroll/bank/projects/…), including all 46 conflict pairs from the City of Atlanta Oracle SoD audit (2016), generic-account and super-user flags. Inquiry/read-only responsibilities excluded. Rules editable in the UI.
 - **Level 3 (function-level) SoD** — when the extract has function columns, every responsibility-level finding is marked Confirmed / Not confirmed against the functions actually reachable through the menus, and conflicts visible only at function level (e.g. invoice + payment inside one responsibility) are added as "L3 only". Function → category map is editable in the Rules tab.
 - **Leaver check** — exited employees with responsibilities still active after exit date (person → Oracle user by exact EMAIL_ADDRESS match, else username = email local-part; all of a person's accounts are checked).
 - **Joiner check** — new joiners' granted access for appropriateness review.
