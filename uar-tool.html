@@ -188,7 +188,9 @@
 const DEFAULT_RULES = {
   readonly: "inquiry|enquiry|report|view only|read only",
   funcReadonly: "inquiry|enquiry|view only|read only",   // no "report": function names like "Expense Report Audit" are transactional
-  generic: "^%|%$|^EX[_.]|GENERIC|SHARED|BATCH|CONVERSION|INTERFACE|^TEST",
+  generic: "^%|%$|GENERIC|SHARED|BATCH|CONVERSION|INTERFACE|^TEST",
+  exEmployee: "^EX[_.]",   // ex-employee naming convention; tested with surrounding % stripped
+
   // entity/OU code in the responsibility name (group 1): "MME.GL.Manager.204201" -> 204201, "220601.AP Super User" -> 220601, "L363.GL User" -> L363.
   // Two scoped responsibilities only conflict within the same scope; unscoped ones conflict with everything. Blank = off.
   scope: "(?:^|\\.)([A-Z]?\\d{3,})(?=[.(\\s]|$)",
@@ -401,6 +403,7 @@ function compileRules(rules){
     readonly: rx(rules.readonly, /$^/),
     funcReadonly: rx(rules.funcReadonly ?? DEFAULT_RULES.funcReadonly, /$^/),
     generic: rx(rules.generic, /$^/),
+    exEmployee: rx(rules.exEmployee ?? DEFAULT_RULES.exEmployee, /$^/),
     admin: rx(rules.adminExclude || "$^", /$^/),
     scope: rx(rules.scope || "$^", /$^/),
     classifications: rules.classifications.map(c => ({ cat:c.cat, rx:rx(c.name,/$^/), apps:c.apps ? c.apps.split(",").map(a=>a.trim().toUpperCase()).filter(Boolean) : [] })),
@@ -570,7 +573,12 @@ function runReview(data, rules, today){
     for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r); }
     // generic accounts only matter when they hold transactional (classified) access; inquiry-only/unclassified is noise
     const biz = act.filter(r=>r.cats.some(c=>c!=="SYSADMIN"));
-    if (R.generic.test(u) && biz.length)
+    // ex-employee accounts take precedence over generic: leaver access is the real finding
+    if (R.exEmployee.test(u.replace(/^%+|%+$/g,"")) && biz.length)
+      sink.push({ disposition:"", severity:"HIGH", user:u, employee:who, rule:"EX-EMPLOYEE ACCOUNT WITH ACTIVE ACCESS",
+        detail:`Account name marks an ex-employee; still holds ${biz.length} active transactional responsibility(ies) — end-date the access`,
+        resps: biz.map(r=>r.resp).join("; ") });
+    else if (R.generic.test(u) && biz.length)
       sink.push({ disposition:"", severity:"HIGH", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
         detail:`Account name matches generic pattern; holds ${biz.length} transactional responsibility(ies) — no individual accountability`,
         resps: biz.map(r=>r.resp).join("; ") });
@@ -873,6 +881,7 @@ function renderRules(p){
     <table><tr><td style="width:220px">Read-only (excluded from SoD)</td><td><input type="text" id="r-readonly" value="${esc(rules.readonly)}"></td></tr>
     <tr><td>Read-only functions (Level 3)</td><td><input type="text" id="r-funcro" value="${esc(rules.funcReadonly??DEFAULT_RULES.funcReadonly)}"></td></tr>
     <tr><td>Generic / shared account</td><td><input type="text" id="r-generic" value="${esc(rules.generic)}"></td></tr>
+    <tr><td>Ex-employee account</td><td><input type="text" id="r-exemp" value="${esc(rules.exEmployee??DEFAULT_RULES.exEmployee)}"></td></tr>
     <tr><td>Entity / OU scope (group 1; conflicts only within the same scope, blank = off)</td><td><input type="text" id="r-scope" value="${esc(rules.scope??DEFAULT_RULES.scope)}"></td></tr>
     <tr><td>Admin/system accounts (excluded from SoD per admin policy)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
     <h3>Responsibility classification (name pattern → access category)</h3>
@@ -909,12 +918,12 @@ function renderRules(p){
     const chk = (s,l)=>{ try{ new RegExp(s); }catch(e){ bad.push(l+": "+e.message); } };
     const nr = {
       readonly: p.querySelector("#r-readonly").value, funcReadonly: p.querySelector("#r-funcro").value, generic: p.querySelector("#r-generic").value,
-      adminExclude: p.querySelector("#r-admin").value, scope: p.querySelector("#r-scope").value,
+      exEmployee: p.querySelector("#r-exemp").value, adminExclude: p.querySelector("#r-admin").value, scope: p.querySelector("#r-scope").value,
       classifications: [...ctb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), apps:tr.cells[1].firstChild.value.trim(), name:tr.cells[2].firstChild.value})).filter(c=>c.cat&&c.name),
       funcClassifications: [...utb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), pattern:tr.cells[1].firstChild.value})).filter(c=>c.cat&&c.pattern),
       conflicts: [...ftb.rows].map(tr=>({a:tr.cells[0].firstChild.value.trim(), b:tr.cells[1].firstChild.value.trim(), risk:tr.cells[2].firstChild.value.trim().toUpperCase()||"HIGH", desc:tr.cells[3].firstChild.value})).filter(c=>c.a&&c.b)
     };
-    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.adminExclude,"admin exclusion"); chk(nr.scope,"entity scope");
+    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.exEmployee,"ex-employee");chk(nr.adminExclude,"admin exclusion"); chk(nr.scope,"entity scope");
     nr.classifications.forEach(c=>chk(c.name,"classification "+c.cat));
     nr.funcClassifications.forEach(c=>chk(c.pattern,"function classification "+c.cat));
     const msg = p.querySelector("#r-msg");
