@@ -32,6 +32,7 @@ D = date
 OPEN = None
 # (user, responsibility, app, start, end)
 RESP = [
+    # Note: "Manager"/"Consultant" names are not transactional at Level 1, so those scenarios surface at Level 3 (functions).
     # AP end-to-end: supplier + invoice + payment -> 3 HIGH conflicts. Old buyer role end-dated (ignored).
     ("JSMITH", "Payables Manager", "SQLAP", D(2022,4,1), OPEN),
     ("JSMITH", "AP Payment Processing", "SQLAP", D(2022,4,1), OPEN),

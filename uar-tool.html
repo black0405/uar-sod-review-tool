@@ -189,7 +189,6 @@ const DEFAULT_RULES = {
   readonly: "inquiry|enquiry|report|view only|read only",
   funcReadonly: "inquiry|enquiry|view only|read only",   // no "report": function names like "Expense Report Audit" are transactional
   generic: "^%|%$|^EX[_.]|GENERIC|SHARED|BATCH|CONVERSION|INTERFACE|^TEST",
-  superuser: "super user",
   // entity/OU code in the responsibility name (group 1): "MME.GL.Manager.204201" -> 204201, "220601.AP Super User" -> 220601, "L363.GL User" -> L363.
   // Two scoped responsibilities only conflict within the same scope; unscoped ones conflict with everything. Blank = off.
   scope: "(?:^|\\.)([A-Z]?\\d{3,})(?=[.(\\s]|$)",
@@ -198,30 +197,30 @@ const DEFAULT_RULES = {
     // Procure-to-Pay
     { cat:"SUPPLIER_MAINT",   apps:"",          name:"supplier|vendor" },
     { cat:"PO_REQUISITION",   apps:"PO,ICX",    name:"requisition|iprocurement|i-procurement" },
-    { cat:"PO_CREATE",        apps:"PO",        name:"(\\bpo\\b|purchas\\w*).*(manager|super user|buyer|\\buser\\b)|\\bbuyer\\b" },
+    { cat:"PO_CREATE",        apps:"PO",        name:"(\\bpo\\b|purchas\\w*).*(super user|buyer|\\buser\\b)|\\bbuyer\\b" },
     { cat:"PO_RECEIVING",     apps:"",          name:"receiving" },
     { cat:"PO_APPROVAL",      apps:"PO,ICX",    name:"approv" },
-    { cat:"AP_INVOICE_ENTRY", apps:"SQLAP",     name:"(\\bap\\b|payables?\\b).*(manager|super user|entry|invoice|consultant|\\buser\\b)" },
+    { cat:"AP_INVOICE_ENTRY", apps:"SQLAP",     name:"(\\bap\\b|payables?\\b).*(super user|entry|invoice|\\buser\\b)" },
     { cat:"AP_PAYMENTS",      apps:"SQLAP,CE",  name:"payment|disbursement" },
     { cat:"EXPENSE_AUDIT",    apps:"",          name:"\\boie\\b|expense.*audit|auditor" },
     // Order-to-Cash
-    { cat:"CUSTOMER_MAINT",   apps:"",          name:"customer.*(maint\\w*|master|manager|super user|\\buser\\b)" },
-    { cat:"OM_ORDER_ENTRY",   apps:"ONT",       name:"(\\bom\\b|order).*(manager|super user|entry|\\buser\\b)|sales admin" },
+    { cat:"CUSTOMER_MAINT",   apps:"",          name:"customer.*(maint\\w*|master|super user|\\buser\\b)" },
+    { cat:"OM_ORDER_ENTRY",   apps:"ONT",       name:"(\\bom\\b|order).*(super user|entry|\\buser\\b)|sales admin" },
     { cat:"OM_SHIPPING",      apps:"ONT,WSH",   name:"shipping|ship confirm|\\bwsh\\b" },
-    { cat:"AR_MAINTAIN",      apps:"AR",        name:"(\\bar\\b|receivables?\\b).*(manager|super user|\\buser\\b)" },
+    { cat:"AR_MAINTAIN",      apps:"AR",        name:"(\\bar\\b|receivables?\\b).*(super user|\\buser\\b)" },
     { cat:"AR_CASH",          apps:"AR,CE",     name:"cash|remittance|receipt|lockbox" },
     // Record-to-Report
-    { cat:"GL_JOURNAL",       apps:"SQLGL",     name:"(\\bgl\\b|general ledger).*(manager|super user|entry|consultant|\\buser\\b)|journal" },
+    { cat:"GL_JOURNAL",       apps:"SQLGL",     name:"(\\bgl\\b|general ledger).*(super user|entry|\\buser\\b)|journal" },
     { cat:"GL_PERIOD_CONTROL",apps:"",          name:"period control|open/?close period" },
     { cat:"GL_SETUP",         apps:"SQLGL",     name:"(\\bgl\\b|ledger).*(setup|configurat\\w*)|flexfield|cross.?validation" },
     { cat:"GL_AUTH_LIMITS",   apps:"SQLGL",     name:"authori[sz]ation limit" },
-    { cat:"CE_RECON",         apps:"CE",        name:"cash management|bank.*(recon\\w*|statement)|\\bce\\b.*(manager|super user|\\buser\\b)" },
+    { cat:"CE_RECON",         apps:"CE",        name:"cash management|bank.*(recon\\w*|statement)|\\bce\\b.*(super user|\\buser\\b)" },
     { cat:"BANK_MAINT",       apps:"",          name:"bank accounts?\\b|bank (setup|master)|treasury" },
-    { cat:"FA_MAINTAIN",      apps:"OFA",       name:"(\\bfa\\b|assets?\\b).*(manager|super user|\\buser\\b)" },
+    { cat:"FA_MAINTAIN",      apps:"OFA",       name:"(\\bfa\\b|assets?\\b).*(super user|\\buser\\b)" },
     // Inventory / Costing
-    { cat:"INV_MAINTAIN",     apps:"INV",       name:"(\\binv\\b|inventory).*(manager|super user|\\buser\\b)" },
+    { cat:"INV_MAINTAIN",     apps:"INV",       name:"(\\binv\\b|inventory).*(super user|\\buser\\b)" },
     { cat:"INV_COUNT",        apps:"INV",       name:"cycle count|physical (count\\w*|inventory)" },
-    { cat:"CST_MAINTAIN",     apps:"CST,BOM",   name:"(\\bcst\\b|cost\\w*).*(manager|super user|\\buser\\b)" },
+    { cat:"CST_MAINTAIN",     apps:"CST,BOM",   name:"(\\bcst\\b|cost\\w*).*(super user|\\buser\\b)" },
     // HR / Payroll
     { cat:"HR_MAINTAIN",      apps:"PER",       name:"\\bhr\\b|human resource" },
     { cat:"PAYROLL",          apps:"PAY",       name:"payroll" },
@@ -229,7 +228,7 @@ const DEFAULT_RULES = {
     { cat:"PAYROLL_SETUP",    apps:"PAY",       name:"payroll.*(setup|config\\w*|implement\\w*)" },
     { cat:"TIME_ENTRY",       apps:"",          name:"\\btime ?(card|keep\\w*|entry|and labor)|\\botl\\b|timesheet" },
     // Projects
-    { cat:"PA_COST",          apps:"PA",        name:"^(?!.*billing)(\\bpa\\b|projects?\\b).*(costing|expenditure|manager|super user|\\buser\\b)" },
+    { cat:"PA_COST",          apps:"PA",        name:"^(?!.*billing)(\\bpa\\b|projects?\\b).*(costing|expenditure|super user|\\buser\\b)" },
     { cat:"PA_BILLING",       apps:"PA",        name:"(\\bpa\\b|projects?\\b).*(billing|invoic\\w*)" },
     // System administration
     { cat:"SYSADMIN",         apps:"",          name:"system administrat\\w*|sysadmin|application developer|security administrat\\w*|user management|workflow administrat\\w*|functional administrat\\w*|\\balert\\b.*manager" }
@@ -402,7 +401,6 @@ function compileRules(rules){
     readonly: rx(rules.readonly, /$^/),
     funcReadonly: rx(rules.funcReadonly ?? DEFAULT_RULES.funcReadonly, /$^/),
     generic: rx(rules.generic, /$^/),
-    superuser: rx(rules.superuser, /$^/),
     admin: rx(rules.adminExclude || "$^", /$^/),
     scope: rx(rules.scope || "$^", /$^/),
     classifications: rules.classifications.map(c => ({ cat:c.cat, rx:rx(c.name,/$^/), apps:c.apps ? c.apps.split(",").map(a=>a.trim().toUpperCase()).filter(Boolean) : [] })),
@@ -570,16 +568,13 @@ function runReview(data, rules, today){
     const who = m ? m.full.replace(/,\s*$/,"") : "";
     const catMap = new Map(); // cat -> [{resp, scope}]
     for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r); }
-    if (R.generic.test(u) && act.length)
-      sink.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
-        detail:`Account name matches generic pattern; holds ${act.length} active responsibility(ies) — no individual accountability`,
-        resps: act.map(r=>r.resp).join("; ") });
+    // generic accounts only matter when they hold transactional (classified) access; inquiry-only/unclassified is noise
+    const biz = act.filter(r=>r.cats.some(c=>c!=="SYSADMIN"));
+    if (R.generic.test(u) && biz.length)
+      sink.push({ disposition:"", severity:"HIGH", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
+        detail:`Account name matches generic pattern; holds ${biz.length} transactional responsibility(ies) — no individual accountability`,
+        resps: biz.map(r=>r.resp).join("; ") });
     // SYSADMIN access is governed by the admin access policy — classified (shown in the access dump) but not reported as a finding
-    const su = act.filter(r=>R.superuser.test(r.resp));
-    if (su.length)
-      sink.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER",
-        detail:`${su.length} super-user responsibility(ies) grant broad transactional access — confirm business need`,
-        resps: su.map(r=>r.resp).join("; ") });
     for (const c of R.conflicts)
       if (catMap.has(c.a) && catMap.has(c.b)){
         const [ra, rb] = scopedPair(catMap.get(c.a), catMap.get(c.b)).map(l=>l.map(r=>r.resp));
@@ -878,7 +873,6 @@ function renderRules(p){
     <table><tr><td style="width:220px">Read-only (excluded from SoD)</td><td><input type="text" id="r-readonly" value="${esc(rules.readonly)}"></td></tr>
     <tr><td>Read-only functions (Level 3)</td><td><input type="text" id="r-funcro" value="${esc(rules.funcReadonly??DEFAULT_RULES.funcReadonly)}"></td></tr>
     <tr><td>Generic / shared account</td><td><input type="text" id="r-generic" value="${esc(rules.generic)}"></td></tr>
-    <tr><td>Super-user flag</td><td><input type="text" id="r-superuser" value="${esc(rules.superuser)}"></td></tr>
     <tr><td>Entity / OU scope (group 1; conflicts only within the same scope, blank = off)</td><td><input type="text" id="r-scope" value="${esc(rules.scope??DEFAULT_RULES.scope)}"></td></tr>
     <tr><td>Admin/system accounts (excluded from SoD per admin policy)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
     <h3>Responsibility classification (name pattern → access category)</h3>
@@ -915,12 +909,12 @@ function renderRules(p){
     const chk = (s,l)=>{ try{ new RegExp(s); }catch(e){ bad.push(l+": "+e.message); } };
     const nr = {
       readonly: p.querySelector("#r-readonly").value, funcReadonly: p.querySelector("#r-funcro").value, generic: p.querySelector("#r-generic").value,
-      superuser: p.querySelector("#r-superuser").value, adminExclude: p.querySelector("#r-admin").value, scope: p.querySelector("#r-scope").value,
+      adminExclude: p.querySelector("#r-admin").value, scope: p.querySelector("#r-scope").value,
       classifications: [...ctb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), apps:tr.cells[1].firstChild.value.trim(), name:tr.cells[2].firstChild.value})).filter(c=>c.cat&&c.name),
       funcClassifications: [...utb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), pattern:tr.cells[1].firstChild.value})).filter(c=>c.cat&&c.pattern),
       conflicts: [...ftb.rows].map(tr=>({a:tr.cells[0].firstChild.value.trim(), b:tr.cells[1].firstChild.value.trim(), risk:tr.cells[2].firstChild.value.trim().toUpperCase()||"HIGH", desc:tr.cells[3].firstChild.value})).filter(c=>c.a&&c.b)
     };
-    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.superuser,"super-user"); chk(nr.adminExclude,"admin exclusion"); chk(nr.scope,"entity scope");
+    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.adminExclude,"admin exclusion"); chk(nr.scope,"entity scope");
     nr.classifications.forEach(c=>chk(c.name,"classification "+c.cat));
     nr.funcClassifications.forEach(c=>chk(c.pattern,"function classification "+c.cat));
     const msg = p.querySelector("#r-msg");
