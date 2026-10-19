@@ -68,7 +68,7 @@ RESP = [
     ("XLIU", "Inventory Manager", "INV", D(2025,2,1), OPEN),            # not in HR mapping -> Unmatched
     ("AP_INTERFACE", "Payables Manager", "SQLAP", D(2019,1,1), OPEN),   # generic account w/ transactional access
     ("SHARED_FINANCE", "General Ledger Inquiry", "SQLGL", D(2019,1,1), OPEN),
-    ("SYSADMIN", "System Administrator", "SYSADMIN", D(2015,1,1), OPEN),# seeded account -> Admin SoD tab
+    ("SYSADMIN", "System Administrator", "SYSADMIN", D(2015,1,1), OPEN),# seeded admin account -> excluded per admin policy
     ("SYSADMIN", "Payables Manager", "SQLAP", D(2015,1,1), OPEN),
 ]
 

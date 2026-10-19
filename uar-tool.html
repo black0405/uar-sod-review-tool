@@ -170,7 +170,6 @@
 
   <div class="tabs" id="tabs">
     <button data-tab="sod" class="on">SoD conflicts</button>
-    <button data-tab="sodadmin">Admin SoD</button>
     <button data-tab="leavers">Leavers</button>
     <button data-tab="joiners">Joiners</button>
     <button data-tab="uar">Full UAR</button>
@@ -191,6 +190,9 @@ const DEFAULT_RULES = {
   funcReadonly: "inquiry|enquiry|view only|read only",   // no "report": function names like "Expense Report Audit" are transactional
   generic: "^%|%$|^EX[_.]|GENERIC|SHARED|BATCH|CONVERSION|INTERFACE|^TEST",
   superuser: "super user",
+  // entity/OU code in the responsibility name (group 1): "MME.GL.Manager.204201" -> 204201, "220601.AP Super User" -> 220601, "L363.GL User" -> L363.
+  // Two scoped responsibilities only conflict within the same scope; unscoped ones conflict with everything. Blank = off.
+  scope: "(?:^|\\.)([A-Z]?\\d{3,})(?=[.(\\s]|$)",
   adminExclude: "^SYSADMIN$|^APPS$|^GUEST$|^ANONYMOUS$|^AUTOINSTALL$|^WIZARD$|^FEEDER|^CONCURRENT|^INITIAL SETUP|^STANDALONE|^ASGADM$|^MOBILEADM|^IBE|^IRC|^OAM|^XML",
   classifications: [
     // Procure-to-Pay
@@ -388,6 +390,7 @@ function compileRules(rules){
     generic: rx(rules.generic, /$^/),
     superuser: rx(rules.superuser, /$^/),
     admin: rx(rules.adminExclude || "$^", /$^/),
+    scope: rx(rules.scope || "$^", /$^/),
     classifications: rules.classifications.map(c => ({ cat:c.cat, rx:rx(c.name,/$^/), apps:c.apps ? c.apps.split(",").map(a=>a.trim().toUpperCase()).filter(Boolean) : [] })),
     funcClassifications: (rules.funcClassifications||[]).map(c => ({ cat:c.cat, rx:rx(c.pattern,/$^/) })),
     conflicts: rules.conflicts
@@ -396,7 +399,11 @@ function compileRules(rules){
 
 const classifyFunc = (code, name, R) => R.funcClassifications.filter(c => c.rx.test(`${code} ${name}`)).map(c => c.cat);
 // "Resp: CODE; Resp: CODE (+n more)" — keeps evidence cells readable
-const evList = set => { const a=[...set]; return a.slice(0,4).join("; ") + (a.length>4?` (+${a.length-4} more)`:""); };
+const evList = set => { const a=[...set].map(x=>x.label??x); return a.slice(0,4).join("; ") + (a.length>4?` (+${a.length-4} more)`:""); };
+// cross-entity pairs are not conflicts: keep only entries with a same-scope (or unscoped) partner on the other side
+const scopedPair = (A, B) => { const ok = (x,y) => !x.scope || !y.scope || x.scope===y.scope;
+  return [A.filter(x=>B.some(y=>ok(x,y))), B.filter(y=>A.some(x=>ok(x,y)))]; };
+const scopeOf = (name, R) => { const m = R.scope.exec(name); return m ? (m[1] ?? m[0]).toUpperCase() : ""; };
 
 function classifyResp(name, app, R){
   if (R.readonly.test(name)) return [];
@@ -409,7 +416,7 @@ function classifyResp(name, app, R){
 
 function runReview(data, rules, today){
   const R = compileRules(rules);
-  const out = { leavers:[], joiners:[], sod:[], sodAdmin:[], uar:[], unmatched:[], summary:{} };
+  const out = { leavers:[], joiners:[], sod:[], uar:[], unmatched:[], summary:{} };
 
   // ---- group responsibilities per Oracle user
   const users = new Map();
@@ -425,7 +432,7 @@ function runReview(data, rules, today){
     if (r.email && String(r.email).includes("@") && !userEmail.has(u)) userEmail.set(u, String(r.email).trim().toLowerCase());
     const end = asDate(r.end);
     users.get(u).push({ resp:String(r.resp), start:asDate(r.start), end, app:r.app?String(r.app):"",
-      active: !end || end > today, cats: classifyResp(String(r.resp), r.app, R) });
+      active: !end || end > today, cats: classifyResp(String(r.resp), r.app, R), scope: scopeOf(String(r.resp), R) });
   }
 
   // ---- link Oracle user <-> person by email only: exact EMAIL_ADDRESS match, else username = email local-part
@@ -527,7 +534,7 @@ function runReview(data, rules, today){
   }
 
   // ---- Level 3: function-level categories per user, from function columns in the extract (active assignments only)
-  const userFuncs = new Map(); // user -> Map(cat -> Set("Resp: FUNCTION_CODE"))
+  const userFuncs = new Map(); // user -> Map(cat -> Map("Resp: FUNCTION_CODE" -> {label, scope}))
   for (const f of (data.func?.rows||[])){
     if (f.user==null || f.code==null) continue;
     const fend = asDate(f.end); if (fend && fend <= today) continue;  // ended assignment
@@ -535,7 +542,8 @@ function runReview(data, rules, today){
     if (!userFuncs.has(u)) userFuncs.set(u, new Map());   // registered even if every row is read-only
     if (R.readonly.test(resp) || R.funcReadonly.test(name)) continue;
     const fc = userFuncs.get(u);
-    for (const c of classifyFunc(code, name, R)){ if(!fc.has(c)) fc.set(c,new Set()); fc.get(c).add(`${resp}: ${code}`); }
+    const label = `${resp}: ${code}`, ev = { label, scope: scopeOf(resp, R) };
+    for (const c of classifyFunc(code, name, R)){ if(!fc.has(c)) fc.set(c,new Map()); fc.get(c).set(label, ev); }
   }
   const L3_RULE = rule => rule==="SYSADMIN / SECURITY ADMIN" || rule.includes(" × ");
 
@@ -546,15 +554,15 @@ function runReview(data, rules, today){
     const m = mapForUser(u);
     const emp = m ? empForName(m.full) : null;
     const who = m ? m.full.replace(/,\s*$/,"") : "";
-    const catMap = new Map(); // cat -> resp names
-    for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r.resp); }
+    const catMap = new Map(); // cat -> [{resp, scope}]
+    for (const r of act) for (const c of r.cats){ if(!catMap.has(c)) catMap.set(c,[]); catMap.get(c).push(r); }
     if (R.generic.test(u) && act.length)
       sink.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
         detail:`Account name matches generic pattern; holds ${act.length} active responsibility(ies) — no individual accountability`,
         resps: act.map(r=>r.resp).join("; ") });
     if (catMap.has("SYSADMIN"))
       sink.push({ disposition:"", severity:"CRITICAL", user:u, employee:who, rule:"SYSADMIN / SECURITY ADMIN",
-        detail:"Holds system administration capability — can alter any user's access", resps: catMap.get("SYSADMIN").join("; ") });
+        detail:"Holds system administration capability — can alter any user's access", resps: catMap.get("SYSADMIN").map(r=>r.resp).join("; ") });
     const su = act.filter(r=>R.superuser.test(r.resp));
     if (su.length)
       sink.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER",
@@ -562,8 +570,8 @@ function runReview(data, rules, today){
         resps: su.map(r=>r.resp).join("; ") });
     for (const c of R.conflicts)
       if (catMap.has(c.a) && catMap.has(c.b)){
-        const ra = catMap.get(c.a), rb = catMap.get(c.b);
-        if (c.a!==c.b || ra.length>1)
+        const [ra, rb] = scopedPair(catMap.get(c.a), catMap.get(c.b)).map(l=>l.map(r=>r.resp));
+        if (ra.length && (c.a!==c.b || ra.length>1))
           sink.push({ disposition:"", severity:c.risk, user:u, employee:who, rule:`${c.a} × ${c.b}`, detail:c.desc,
             resps:`[${c.a}] ${[...new Set(ra)].join("; ")}  |  [${c.b}] ${[...new Set(rb)].join("; ")}` });
       }
@@ -571,10 +579,12 @@ function runReview(data, rules, today){
     if (fcats){
       const hits = new Map(); // rule -> L3 hit
       if (fcats.has("SYSADMIN"))
-        hits.set("SYSADMIN / SECURITY ADMIN", { severity:"CRITICAL", detail:"Holds system administration functions — can alter any user's access", evidence:evList(fcats.get("SYSADMIN")) });
+        hits.set("SYSADMIN / SECURITY ADMIN", { severity:"CRITICAL", detail:"Holds system administration functions — can alter any user's access", evidence:evList(fcats.get("SYSADMIN").values()) });
       for (const c of R.conflicts)
-        if (c.a!==c.b && fcats.has(c.a) && fcats.has(c.b))
-          hits.set(`${c.a} × ${c.b}`, { severity:c.risk, detail:c.desc, evidence:`[${c.a}] ${evList(fcats.get(c.a))}  |  [${c.b}] ${evList(fcats.get(c.b))}` });
+        if (c.a!==c.b && fcats.has(c.a) && fcats.has(c.b)){
+          const [ea, eb] = scopedPair([...fcats.get(c.a).values()], [...fcats.get(c.b).values()]);
+          if (ea.length) hits.set(`${c.a} × ${c.b}`, { severity:c.risk, detail:c.desc, evidence:`[${c.a}] ${evList(ea)}  |  [${c.b}] ${evList(eb)}` });
+        }
       for (const f of sink) if (L3_RULE(f.rule)){
         const h = hits.get(f.rule);
         f.level3 = h ? "Confirmed" : "Not confirmed"; f.evidence = h ? h.evidence : "";
@@ -584,14 +594,14 @@ function runReview(data, rules, today){
         sink.push({ disposition:"", severity:h.severity, user:u, employee:who, rule, detail:h.detail, resps:"", level3:"L3 only", evidence:h.evidence });
     }
     for (const f of sink){ f.level3 ??= ""; f.evidence ??= ""; }
-    (R.admin.test(u) ? out.sodAdmin : out.sod).push(...sink);
+    if (!R.admin.test(u)) out.sod.push(...sink);  // admin/system accounts hold this access per admin policy — not reported
   }
   const bySev = (x,y)=>(SEV_ORDER[x.severity]??9)-(SEV_ORDER[y.severity]??9) || x.user.localeCompare(y.user);
-  out.sod.sort(bySev); out.sodAdmin.sort(bySev);
+  out.sod.sort(bySev);
 
   // ---- 4. Full UAR dump + unmatched Oracle users
   const conflictCount = new Map();
-  for (const f of [...out.sod, ...out.sodAdmin]){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
+  for (const f of out.sod){ conflictCount.set(f.user,(conflictCount.get(f.user)||0)+1); }
   const hasMap = (data.map?.rows||[]).length > 0;
   for (const [u,resps] of users){
     const m = mapForUser(u);
@@ -609,7 +619,6 @@ function runReview(data, rules, today){
     sodCritical: out.sod.filter(f=>f.severity==="CRITICAL").length,
     sodHigh: out.sod.filter(f=>f.severity==="HIGH").length,
     sodMedium: out.sod.filter(f=>f.severity==="MEDIUM").length,
-    sodAdmin: out.sodAdmin.length,
     leaverHigh: out.leavers.filter(f=>f.severity==="HIGH").length,
     leaverOther: out.leavers.filter(f=>f.severity!=="HIGH"&&f.severity!=="OK").length,
     joiners: out.joiners.length,
@@ -706,7 +715,6 @@ function applyDispositions(r){
     if (state.dispositions[f._dkey]) f.disposition = state.dispositions[f._dkey];
   });
   wire(r.sod, f=>`S|${f.user}|${f.rule}`);
-  wire(r.sodAdmin, f=>`A|${f.user}|${f.rule}`);
   wire(r.leavers, f=>`L|${f.employee}|${f.finding}`);
   wire(r.joiners, f=>`J|${f.employee}|${f.finding}`);
 }
@@ -730,7 +738,6 @@ function renderDash(){
   dash.innerHTML = [
     ["", s.oracleUsers, "Oracle users"], ["", s.respRows, "Access rows"],
     ["crit", s.sodCritical, "SoD critical"], ["high", s.sodHigh, "SoD high"], ["med", s.sodMedium, "SoD medium"],
-    ["info", s.sodAdmin, "Admin SoD"],
     ...(SHOW_UAR ? [["high", s.leaverHigh, "Leavers w/ active access"], ["med", s.leaverOther, "Leaver exceptions"], ["info", s.joiners, "Joiners reviewed"]] : []),
     ["med", s.unmatched, "Unmatched"],
     ...(s.l3 ? [["high", s.l3Confirmed, "L3 confirmed"], ["ok", s.l3NotConfirmed, "L3 not confirmed"], ["crit", s.l3Only, "Found only at L3"]] : [])
@@ -793,7 +800,6 @@ function showTab(tab){
   const respCell = (v,r) => esc(v) + (r.evidence ? `<div class="ev">Functions: ${esc(r.evidence)}</div>` : "");
   const defs = {
     sod:      { rows:state.results.sod, cols:[["severity","Severity",chip],["user","Oracle user"],["employee","Employee"],["rule","Rule",ruleCell],["detail","Risk description"],["resps","Responsibilities",respCell],["disposition","Verdict",disp]] },
-    sodadmin: { rows:state.results.sodAdmin, cols:[["severity","Severity",chip],["user","Oracle user"],["employee","Employee"],["rule","Rule",ruleCell],["detail","Risk description"],["resps","Responsibilities",respCell],["disposition","Verdict",disp]] },
     leavers:  { rows:state.results.leavers, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["exitDate","Exit date"],["oracleUser","Oracle user"],["email","Email"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict",disp]] },
     joiners:  { rows:state.results.joiners, cols:[["severity","Severity",chip],["employee","Employee"],["empId","Emp ID"],["joinDate","Join date"],["status","HR status"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Access granted"],["disposition","Verdict",disp]] },
     uar:      { rows:state.results.uar, cols:[["user","Oracle user"],["employee","Employee"],["empStatus","Emp status"],["resp","Responsibility"],["app","App"],["start","Start"],["end","End"],["active","Active"],["categories","Access categories"],["conflicts","Conflict findings"]] },
@@ -863,7 +869,8 @@ function renderRules(p){
     <tr><td>Read-only functions (Level 3)</td><td><input type="text" id="r-funcro" value="${esc(rules.funcReadonly??DEFAULT_RULES.funcReadonly)}"></td></tr>
     <tr><td>Generic / shared account</td><td><input type="text" id="r-generic" value="${esc(rules.generic)}"></td></tr>
     <tr><td>Super-user flag</td><td><input type="text" id="r-superuser" value="${esc(rules.superuser)}"></td></tr>
-    <tr><td>Admin/system accounts (reported in Admin SoD tab)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
+    <tr><td>Entity / OU scope (group 1; conflicts only within the same scope, blank = off)</td><td><input type="text" id="r-scope" value="${esc(rules.scope??DEFAULT_RULES.scope)}"></td></tr>
+    <tr><td>Admin/system accounts (excluded from SoD per admin policy)</td><td><input type="text" id="r-admin" value="${esc(rules.adminExclude||"")}"></td></tr></table>
     <h3>Responsibility classification (name pattern → access category)</h3>
     <div class="tblwrap" style="max-height:none"><table id="r-class"><thead><tr><th>Category</th><th>App filter (comma-sep, blank = any)</th><th>Name pattern (regex)</th><th></th></tr></thead><tbody></tbody></table></div>
     <button class="mini sec" id="r-addclass">+ Add classification</button>
@@ -898,12 +905,12 @@ function renderRules(p){
     const chk = (s,l)=>{ try{ new RegExp(s); }catch(e){ bad.push(l+": "+e.message); } };
     const nr = {
       readonly: p.querySelector("#r-readonly").value, funcReadonly: p.querySelector("#r-funcro").value, generic: p.querySelector("#r-generic").value,
-      superuser: p.querySelector("#r-superuser").value, adminExclude: p.querySelector("#r-admin").value,
+      superuser: p.querySelector("#r-superuser").value, adminExclude: p.querySelector("#r-admin").value, scope: p.querySelector("#r-scope").value,
       classifications: [...ctb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), apps:tr.cells[1].firstChild.value.trim(), name:tr.cells[2].firstChild.value})).filter(c=>c.cat&&c.name),
       funcClassifications: [...utb.rows].map(tr=>({cat:tr.cells[0].firstChild.value.trim(), pattern:tr.cells[1].firstChild.value})).filter(c=>c.cat&&c.pattern),
       conflicts: [...ftb.rows].map(tr=>({a:tr.cells[0].firstChild.value.trim(), b:tr.cells[1].firstChild.value.trim(), risk:tr.cells[2].firstChild.value.trim().toUpperCase()||"HIGH", desc:tr.cells[3].firstChild.value})).filter(c=>c.a&&c.b)
     };
-    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.superuser,"super-user"); chk(nr.adminExclude,"admin exclusion");
+    chk(nr.readonly,"read-only"); chk(nr.funcReadonly,"function read-only");chk(nr.generic,"generic"); chk(nr.superuser,"super-user"); chk(nr.adminExclude,"admin exclusion"); chk(nr.scope,"entity scope");
     nr.classifications.forEach(c=>chk(c.name,"classification "+c.cat));
     nr.funcClassifications.forEach(c=>chk(c.pattern,"function classification "+c.cat));
     const msg = p.querySelector("#r-msg");
@@ -921,14 +928,14 @@ $("#btn-xlsx").addEventListener("click", ()=>{
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([
     [SHOW_UAR ? "UAR & SoD Review — Summary" : "SoD Review — Summary"], ["Generated", fmtDate(new Date())], [],
     ["Oracle users", s.oracleUsers], ["Access rows", s.respRows],
-    ["SoD critical", s.sodCritical], ["SoD high", s.sodHigh], ["SoD medium", s.sodMedium], ["Admin SoD findings", s.sodAdmin],
+    ["SoD critical", s.sodCritical], ["SoD high", s.sodHigh], ["SoD medium", s.sodMedium],
     ...(SHOW_UAR ? [["Leavers with active access", s.leaverHigh], ["Other leaver exceptions", s.leaverOther], ["Joiners reviewed", s.joiners]] : []),
     ["Unmatched items", s.unmatched],
     ...(s.l3 ? [[], ["Level 3 (function) rows", s.funcRows], ["L3 confirmed", s.l3Confirmed], ["L3 not confirmed", s.l3NotConfirmed], ["Found only at L3", s.l3Only]] : [])
   ]), "Summary");
   const add = (name, rows) => XLSX.utils.book_append_sheet(wb,
     XLSX.utils.json_to_sheet(rows.length?rows.map(({_fid,_dkey,...rest})=>{ if(!s.l3){ delete rest.level3; delete rest.evidence; } return rest; }):[{note:"No findings"}]), name);
-  add("SoD Conflicts", r.sod); add("Admin SoD", r.sodAdmin);
+  add("SoD Conflicts", r.sod);
   if (SHOW_UAR){ add("Leavers", r.leavers); add("Joiners", r.joiners); }
   add(SHOW_UAR ? "Full UAR" : "All Access", r.uar); add("Unmatched", r.unmatched);
   XLSX.writeFile(wb, SHOW_UAR ? "UAR_SoD_Findings.xlsx" : "SoD_Findings.xlsx");
@@ -953,7 +960,7 @@ $("#btn-word").addEventListener("click", ()=>{
   to the email local-part.${U?" All Oracle accounts linked to a person are included in the leaver and joiner checks.":""} Checks performed: ${U?"leaver access, joiner access, ":""}segregation of
   duties (responsibility-level, ${(state.rulesUsed&&state.rulesUsed.custom)?"client-provided custom":"built-in Oracle EBS"} rule matrix of
   ${(state.rulesUsed||rules).conflicts.length} conflicts across ${(state.rulesUsed||rules).classifications.length} access categories), and full access dump.
-  Inquiry/read-only responsibilities are excluded from SoD analysis.
+  Inquiry/read-only responsibilities are excluded from SoD analysis. Responsibilities tagged with an entity/OU code only conflict with responsibilities of the same entity (or with untagged ones).
   ${s.l3 ? `Level 3 (function-level) analysis was performed on ${s.funcRows} user-responsibility-function rows: each responsibility-level
   conflict was tested against the functions actually reachable through the responsibility menus (${s.l3Confirmed} confirmed,
   ${s.l3NotConfirmed} not confirmed), and ${s.l3Only} conflict(s) were identified only at function level.` : "SoD analysis was performed at responsibility level (Level 1)."}</p>
@@ -961,7 +968,7 @@ $("#btn-word").addEventListener("click", ()=>{
   <table border="1" cellspacing="0" cellpadding="4" style="border-collapse:collapse">
   <tr><th style="background:#eef1f5">Area</th><th style="background:#eef1f5">Count</th></tr>
   <tr><td>SoD — Critical</td><td>${s.sodCritical}</td></tr><tr><td>SoD — High</td><td>${s.sodHigh}</td></tr>
-  <tr><td>SoD — Medium</td><td>${s.sodMedium}</td></tr><tr><td>Admin/system account SoD</td><td>${s.sodAdmin}</td></tr>
+  <tr><td>SoD — Medium</td><td>${s.sodMedium}</td></tr>
   ${U?`<tr><td>Leavers with active access</td><td>${s.leaverHigh}</td></tr>
   <tr><td>Other leaver exceptions</td><td>${s.leaverOther}</td></tr><tr><td>Joiners reviewed</td><td>${s.joiners}</td></tr>`:""}
   <tr><td>Unmatched users/employees</td><td>${s.unmatched}</td></tr>
@@ -969,9 +976,7 @@ $("#btn-word").addEventListener("click", ()=>{
   <h2>3. Segregation of Duties Conflicts</h2>
   ${tbl(r.sod.map(f=>({...f, rule: f.level3?`${f.rule} [L3: ${f.level3}]`:f.rule, resps: f.evidence?`${f.resps}${f.resps?" — ":""}Functions: ${f.evidence}`:f.resps})),
     [["severity","Severity"],["user","Oracle user"],["employee","Employee"],["rule","Rule"],["detail","Risk"],["resps","Responsibilities"],["disposition","Verdict"]])}
-  <h3>3.1 Admin / system account conflicts</h3>
-  <p><i>Findings on accounts matching the admin/system pattern — reviewed separately as these are typically IT-owned with their own controls.</i></p>
-  ${tbl(r.sodAdmin,[["severity","Severity"],["user","Oracle user"],["rule","Rule"],["detail","Risk"],["resps","Responsibilities"],["disposition","Verdict"]])}
+  <p><i>Admin/system accounts matching the admin pattern are excluded — their access is governed by the admin policy.</i></p>
   ${U?`${sec("Leaver Access")}
   ${tbl(r.leavers.filter(x=>x.severity!=="OK"),[["severity","Severity"],["employee","Employee"],["exitDate","Exit date"],["oracleUser","Oracle user"],["finding","Finding"],["resps","Responsibilities"],["disposition","Verdict"]])}
   <p><i>${r.leavers.filter(x=>x.severity==="OK").length} leaver(s) verified with all access properly end-dated.</i></p>
