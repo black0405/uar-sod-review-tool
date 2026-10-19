@@ -559,7 +559,7 @@ function runReview(data, rules, today){
     const label = `${resp}: ${code}`, ev = { label, scope: scopeOf(resp, R) };
     for (const c of classifyFunc(code, name, R)){ if(!fc.has(c)) fc.set(c,new Map()); fc.get(c).set(label, ev); }
   }
-  const L3_RULE = rule => rule==="SYSADMIN / SECURITY ADMIN" || rule.includes(" × ");
+  const L3_RULE = rule => rule.includes(" × ");
 
   // ---- 3. SoD (active responsibilities only). Level 1 = responsibility names; Level 3 confirms/extends when the extract has function columns
   for (const u of new Set([...users.keys(), ...userFuncs.keys()])){
@@ -574,9 +574,7 @@ function runReview(data, rules, today){
       sink.push({ disposition:"", severity: act.some(r=>r.cats.length)?"HIGH":"MEDIUM", user:u, employee:who, rule:"GENERIC/SHARED ACCOUNT",
         detail:`Account name matches generic pattern; holds ${act.length} active responsibility(ies) — no individual accountability`,
         resps: act.map(r=>r.resp).join("; ") });
-    if (catMap.has("SYSADMIN"))
-      sink.push({ disposition:"", severity:"CRITICAL", user:u, employee:who, rule:"SYSADMIN / SECURITY ADMIN",
-        detail:"Holds system administration capability — can alter any user's access", resps: catMap.get("SYSADMIN").map(r=>r.resp).join("; ") });
+    // SYSADMIN access is governed by the admin access policy — classified (shown in the access dump) but not reported as a finding
     const su = act.filter(r=>R.superuser.test(r.resp));
     if (su.length)
       sink.push({ disposition:"", severity:"MEDIUM", user:u, employee:who, rule:"SUPER USER",
@@ -592,8 +590,6 @@ function runReview(data, rules, today){
     const fcats = userFuncs.get(u);
     if (fcats){
       const hits = new Map(); // rule -> L3 hit
-      if (fcats.has("SYSADMIN"))
-        hits.set("SYSADMIN / SECURITY ADMIN", { severity:"CRITICAL", detail:"Holds system administration functions — can alter any user's access", evidence:evList(fcats.get("SYSADMIN").values()) });
       for (const c of R.conflicts)
         if (c.a!==c.b && fcats.has(c.a) && fcats.has(c.b)){
           const [ea, eb] = scopedPair([...fcats.get(c.a).values()], [...fcats.get(c.b).values()]);

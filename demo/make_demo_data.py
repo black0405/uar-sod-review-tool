@@ -50,7 +50,7 @@ RESP = [
     ("SNAIR", "Payroll Manager", "PAY", D(2019,5,1), OPEN),
     ("DCHEN", "Inventory Manager", "INV", D(2022,8,1), OPEN),           # adjust + count
     ("DCHEN", "Cycle Count User", "INV", D(2022,8,1), OPEN),
-    ("KPATEL", "System Administrator", "SYSADMIN", D(2024,1,15), OPEN), # business user with sysadmin -> CRITICAL
+    ("KPATEL", "System Administrator", "SYSADMIN", D(2024,1,15), OPEN), # sysadmin access is per admin policy -> not reported; Payables Manager alone -> clean
     ("KPATEL", "Payables Manager", "SQLAP", D(2024,1,15), OPEN),
     ("TBROWN", "iProcurement Requisitioner", "ICX", D(2023,3,1), OPEN), # clean: inquiries excluded
     ("TBROWN", "Payables Inquiry", "SQLAP", D(2023,3,1), OPEN),
